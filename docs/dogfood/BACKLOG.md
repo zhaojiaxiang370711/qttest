@@ -171,9 +171,11 @@ qml/TopBar.qml
 
 **Impact:** Medium — would make qtcli a true project lifecycle tool, not just an inspector.
 
-### GAP-6: No C++ Source Awareness
+### GAP-6: No C++ Source Awareness ✅ CLOSED
 
-**Problem:** qtcli does not parse or report on C++ source files. It knows about `find_package` modules but not about `#include <QtQuick>` usage, class hierarchies, or signal/slot connections.
+> **Status (2026-07-15): CLOSED** — `qtcli cpp-files` shipped (qtcli `master` `8797a36`): lists `.cpp/.h` with line counts + aggregates `#include <Q…>` Qt headers. On this project: 8 C++ files / 258 lines; headers QString(3), QObject(2), QQmlApplicationEngine, QQuickWindow, QFontDatabase, QtTest/QtTest, etc. (Class-hierarchy / signal-slot parsing still deferred — needs a C++ parser.)
+
+**Problem:** qtcli does not parse or report on C++ source files.
 
 **Enhancement:** Add:
 - `qtcli sources` — lists .cpp/.h files with line counts
