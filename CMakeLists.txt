@@ -27,6 +27,7 @@ qt_add_resources(qxzn_hmi "appqml"
     PREFIX "/"
     FILES
         qml/main.qml
+        qml/TopBar.qml
         resources/fonts/AlimamaShuHeiTi-Bold.ttf
 )
 set_target_properties(qxzn_hmi PROPERTIES WIN32_EXECUTABLE TRUE MACOSX_BUNDLE TRUE)

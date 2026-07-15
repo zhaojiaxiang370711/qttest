@@ -9,6 +9,14 @@ ApplicationWindow {
     title: "QXZN HMI"
     font.family: "Alimama Shu HeiTi"
 
+    TopBar {
+        id: topBar
+        anchors.top: parent.top
+        anchors.left: parent.left
+        anchors.right: parent.right
+        height: 96
+    }
+
     Item {
         id: keySink
         anchors.fill: parent
