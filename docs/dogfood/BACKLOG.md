@@ -130,7 +130,9 @@ qml/TopBar.qml
 
 **Impact:** Medium-high — this is the core of how Qt Quick apps bundle their UI. Without it, qtcli cannot tell you "this project has a QML module `qxzn.hmi` with 6 files and 1 font."
 
-### GAP-3: No QML Lint / Format Integration
+### GAP-3: No QML Lint / Format Integration ✅ CLOSED
+
+> **Status (2026-07-15): CLOSED** — `qtcli lint` (qmllint) + `qtcli format` (qmlformat --check) commands shipped (qtcli `master` `aa25989`). On this project: lint `6 files, 3 with diagnostics`; format `6 files, 6 need formatting`.
 
 **Problem:** qtcli has no `lint` or `format` command. Qt ships `qmllint` and `qmlformat` at `/opt/Qt/6.11.1/gcc_64/bin/`, but qtcli does not invoke or wrap them.
 
