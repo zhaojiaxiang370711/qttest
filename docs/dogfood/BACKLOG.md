@@ -183,9 +183,11 @@ qml/TopBar.qml
 
 **Impact:** Low-medium — C++ awareness is less critical for a QML-first project, but useful for validating module claims.
 
-### GAP-7: `find-projects` Returns Too Much Noise
+### GAP-7: `find-projects` Returns Too Much Noise ✅ CLOSED
 
-**Problem:** Running `find-projects` on `/home/x/code/pd02` with `--recursive` returned hundreds of projects from the Qt source tree (`qt-everywhere-src-6.11.1/`). The user's actual project is buried in the output.
+> **Status (2026-07-15): CLOSED** — `find-projects --recursive` now skips the Qt source checkout (`qt-everywhere-src*`) + `.superpowers` and bounds recursion with `--max-depth` (default 5). On pd02: **3584 → 3** real projects (qxzn-hmi-qt, dds-fastdds-core, motor_dds_bridge).
+
+**Problem:** Running `find-projects` on `/home/x/code/pd02` with `--recursive` returned hundreds of projects from the Qt source tree
 
 **Enhancement:** Add filtering options:
 - `--exclude-pattern` to skip known source trees
