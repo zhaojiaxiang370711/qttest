@@ -158,7 +158,9 @@ qml/TopBar.qml
 
 **Impact:** Medium — useful for onboarding and code review. The current `info` output is minimal.
 
-### GAP-5: No Build / Run Integration
+### GAP-5: No Build / Run Integration ✅ CLOSED
+
+> **Status (2026-07-15): CLOSED** — `qtcli build` / `test` / `run` shipped (qtcli `master` `662a98b`): auto-configure (`cmake -B build -DCMAKE_PREFIX_PATH=<qmake prefix>`), text inherits stdio, JSON captures. Verified on this project: build ok; `test` runs `tst_core` (pass); `run` launches `qxzn_hmi` offscreen (exit 0). Side-enabler: `read_project_info` now detects non-Qt CMake projects too.
 
 **Problem:** qtcli is inspect-only. It cannot configure, build, or run the project. For a "project helper," the gap between "check if it can build" and "actually build it" is significant.
 
