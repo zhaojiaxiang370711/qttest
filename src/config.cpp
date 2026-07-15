@@ -14,4 +14,5 @@ void Config::parse(const QStringList &args) {
         else if (a == QStringLiteral("--windowed")) m_windowed = true;
         // unknown args ignored
     }
+    emit configChanged();
 }

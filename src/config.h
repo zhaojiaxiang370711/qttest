@@ -5,12 +5,12 @@
 
 class Config : public QObject {
     Q_OBJECT
-    Q_PROPERTY(QString wsUrl READ wsUrl CONSTANT)
-    Q_PROPERTY(QString apiBase READ apiBase CONSTANT)
-    Q_PROPERTY(QString gameId READ gameId CONSTANT)
-    Q_PROPERTY(QString difficulty READ difficulty CONSTANT)
-    Q_PROPERTY(int maxFps READ maxFps CONSTANT)
-    Q_PROPERTY(bool windowed READ windowed CONSTANT)
+    Q_PROPERTY(QString wsUrl READ wsUrl NOTIFY configChanged)
+    Q_PROPERTY(QString apiBase READ apiBase NOTIFY configChanged)
+    Q_PROPERTY(QString gameId READ gameId NOTIFY configChanged)
+    Q_PROPERTY(QString difficulty READ difficulty NOTIFY configChanged)
+    Q_PROPERTY(int maxFps READ maxFps NOTIFY configChanged)
+    Q_PROPERTY(bool windowed READ windowed NOTIFY configChanged)
 public:
     explicit Config(QObject *parent = nullptr);
     Q_INVOKABLE void parse(const QStringList &args);
@@ -20,6 +20,8 @@ public:
     QString difficulty() const { return m_difficulty; }
     int maxFps() const { return m_maxFps; }
     bool windowed() const { return m_windowed; }
+signals:
+    void configChanged();
 private:
     QString m_wsUrl   = QStringLiteral("ws://localhost:8000/ws");
     QString m_apiBase = QStringLiteral("http://localhost:8000");

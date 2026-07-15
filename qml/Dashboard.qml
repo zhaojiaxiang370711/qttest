@@ -26,7 +26,7 @@ Rectangle {
 
         Row { // five metric pills (input-driven + duration)
             spacing: 16
-            MetricPill { icon: "💥"; caption: "Impact"; value: session.strikes }
+            MetricPill { icon: "💥"; caption: "Impact"; value: session.strikes * 3 } // notional impact score (strikes × 3) for this slice
             MetricPill { icon: "⏱"; caption: "Duration"; value: session.duration + "s" }
             MetricPill { icon: "🔥"; caption: "Calories"; value: Math.round(session.calories) }
             MetricPill { icon: "👊"; caption: "Strikes"; value: session.strikes }
