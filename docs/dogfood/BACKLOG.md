@@ -93,7 +93,9 @@ qtcli --project /home/x/code/pd02 --json find-projects /home/x/code/pd02 --recur
 
 Each gap is a concrete enhancement qtcli could add, ranked by dogfooding value.
 
-### GAP-1: No QML File Enumeration
+### GAP-1: No QML File Enumeration ✅ CLOSED
+
+> **Status (2026-07-15): CLOSED** — implemented as the `qtcli qml-files` command (qtcli `master` commit `a07cd58`). Verified on this project: `count: 6, total_lines: 173`.
 
 **Problem:** qtcli has no command to list `.qml` files in a project. `info` returns modules and targets, but not the QML source tree.
 
