@@ -145,7 +145,9 @@ qml/TopBar.qml
 
 **Impact:** Medium — QML linting catches real bugs (undefined properties, missing imports). Without this, developers must manually invoke the tools.
 
-### GAP-4: No Project Structure Overview
+### GAP-4: No Project Structure Overview ✅ CLOSED
+
+> **Status (2026-07-15): CLOSED** — `qtcli structure` shipped (qtcli `master` `da5560e`): file/line inventory by extension + per-directory. On this project: 25 files / 5978 lines (qml 6, cpp 5, md 5, h 3, ttf 1…). Dogfooding also surfaced + fixed two bugs: binary `.ttf` crashed line counting (now byte-based) and `.superpowers` scratch polluted the inventory (now skipped).
 
 **Problem:** qtcli can report modules and targets, but has no command to show the project's source layout — directory tree, file counts by type (.cpp, .h, .qml, .qrc), or dependency graph.
 
