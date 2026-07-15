@@ -117,7 +117,9 @@ qml/TopBar.qml
 
 **Impact:** High — QML files are the primary source for a Qt Quick app. Without this, qtcli has no visibility into the actual UI layer.
 
-### GAP-2: No QML Module / `qt_add_qml_module` Awareness
+### GAP-2: No QML Module / `qt_add_qml_module` Awareness ✅ CLOSED
+
+> **Status (2026-07-15): CLOSED** — `qtcli info` now reports `qt_add_resources` / `qt_add_qml_module` bundles (qtcli `master` commit `148fc10`). Verified on this project: `bundles: 1 / qt_add_resources appqml prefix=/ files=7`.
 
 **Problem:** `info` reports `find_package` modules but does not detect `qt_add_qml_module()` calls. This project uses `qt_add_resources()` (not `qt_add_qml_module`), but newer Qt 6 projects use `qt_add_qml_module` to declare QML modules with URI, version, and type registration.
 
