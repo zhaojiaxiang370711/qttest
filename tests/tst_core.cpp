@@ -2,6 +2,7 @@
 #include <QStringList>
 #include "config.h"
 #include "segment_input.h"
+#include "session_model.h"
 
 class CoreTest : public QObject {
     Q_OBJECT
@@ -35,6 +36,24 @@ private slots:
         QCOMPARE(SI::mapKey(Qt::Key_D), QStringLiteral("waist_mid"));
         QCOMPARE(SI::mapKey(Qt::Key_F), QStringLiteral("waist_right"));
         QCOMPARE(SI::mapKey(Qt::Key_Space), QStringLiteral(""));
+    }
+    void testSessionAccumulation() {
+        SessionModel s;
+        QCOMPARE(s.strikes(), 0);
+        s.onKey(Qt::Key_Q);
+        s.onKey(Qt::Key_A);
+        QCOMPARE(s.strikes(), 2);
+        QCOMPARE(s.lastSegment(), QStringLiteral("waist_left"));
+        QVERIFY(s.calories() > 0.0);
+        QVERIFY(s.frequency() >= 1);
+        s.onTick();
+        QCOMPARE(s.duration(), 1);
+    }
+    void testSessionIgnoresUnknownKey() {
+        SessionModel s;
+        s.onKey(Qt::Key_Space);
+        QCOMPARE(s.strikes(), 0);
+        QVERIFY(s.lastSegment().isEmpty());
     }
 };
 
