@@ -1,3 +1,4 @@
+pragma ComponentBehavior: Bound
 import QtQuick
 import QtQuick.Controls
 
@@ -23,10 +24,13 @@ Rectangle {
         Repeater {
             model: ["首页", "课程", "健身", "设置"]
             delegate: Rectangle {
+                id: navItem
+                required property int index
+                required property string modelData
                 width: navLabel.implicitWidth + 24; height: 40; radius: 8
-                color: bar.activeNav === index ? "#243040" : "transparent"
-                Label { id: navLabel; anchors.centerIn: parent; text: modelData; color: bar.activeNav === index ? "#3fd0c9" : "#aab2bd"; font.pixelSize: 16 }
-                TapHandler { onTapped: bar.activeNav = index }
+                color: bar.activeNav === navItem.index ? "#243040" : "transparent"
+                Label { id: navLabel; anchors.centerIn: parent; text: navItem.modelData; color: bar.activeNav === navItem.index ? "#3fd0c9" : "#aab2bd"; font.pixelSize: 16 }
+                TapHandler { onTapped: bar.activeNav = navItem.index }
             }
         }
     }
