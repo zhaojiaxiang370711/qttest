@@ -27,6 +27,8 @@ ApplicationWindow {
     Component { id: dashboardComponent; Dashboard {} }
     Component { id: placeholderComponent; PlaceholderPage {} }
 
+    Shortcut { sequence: "Esc"; onActivated: Qt.quit() }
+
     Item {
         id: keySink
         anchors.fill: parent
