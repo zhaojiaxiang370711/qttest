@@ -9,12 +9,11 @@ ApplicationWindow {
     title: "QXZN HMI"
     font.family: "Alimama Shu HeiTi"
 
-    Label {
-        anchors.centerIn: parent
-        text: "QXZN HMI 外壳"
-        color: "#e6e8eb"
-        font.family: "Alimama Shu HeiTi"
-        font.pixelSize: 48
-        font.bold: true
+    Item {
+        id: keySink
+        anchors.fill: parent
+        focus: true
+        Keys.onPressed: function(event) { session.onKey(event.key) }
     }
+    Component.onCompleted: keySink.forceActiveFocus()
 }
