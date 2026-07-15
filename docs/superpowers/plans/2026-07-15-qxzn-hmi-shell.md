@@ -677,48 +677,41 @@ Rectangle {
     color: "#16191f"
     property int activeNav: 0
 
+    // Left cluster (Row lays children left-to-right; the Row itself is vertically centered
+    // on the bar — do NOT put anchors.verticalCenter on children inside a Row, Row ignores it).
     Row {
-        anchors.fill: parent
+        anchors.left: parent.left
         anchors.leftMargin: 24
-        anchors.rightMargin: 24
+        anchors.verticalCenter: parent.verticalCenter
         spacing: 24
 
-        // avatar + brand
-        Rectangle { width: 48; height: 48; anchors.verticalCenter: parent.verticalCenter; radius: 24; color: "#2a2f38";
+        Rectangle { width: 48; height: 48; radius: 24; color: "#2a2f38"
             Label { anchors.centerIn: parent; text: "👤"; font.pixelSize: 24 } }
-        Column {
-            anchors.verticalCenter: parent.verticalCenter
+        Column { spacing: 2
             Label { text: "QXZN 运行时"; color: "#e6e8eb"; font.pixelSize: 20; font.bold: true }
-            Label { text: "15.6″ HMI"; color: "#8a9099"; font.pixelSize: 12 }
-        }
+            Label { text: "15.6″ HMI"; color: "#8a9099"; font.pixelSize: 12 } }
 
-        Item { width: 32; height: 1 }
-
-        // nav
         Repeater {
             model: ["首页", "课程", "健身", "设置"]
             delegate: Rectangle {
-                anchors.verticalCenter: parent.verticalCenter
                 width: navLabel.implicitWidth + 24; height: 40; radius: 8
                 color: bar.activeNav === index ? "#243040" : "transparent"
                 Label { id: navLabel; anchors.centerIn: parent; text: modelData; color: bar.activeNav === index ? "#3fd0c9" : "#aab2bd"; font.pixelSize: 16 }
                 TapHandler { onTapped: bar.activeNav = index }
             }
         }
-
-        Item { Layout.fillWidth: true; width: 1; height: 1 } // spacer (width grows)
     }
 
-    // right side: wifi, battery, clock, exit
+    // Right cluster: wifi, battery, clock, exit.
     Row {
         anchors.right: parent.right
         anchors.rightMargin: 24
         anchors.verticalCenter: parent.verticalCenter
         spacing: 20
-        Label { text: "📶"; font.pixelSize: 18; anchors.verticalCenter: parent.verticalCenter }
-        Label { text: "🔋 87%"; color: "#aab2bd"; font.pixelSize: 14; anchors.verticalCenter: parent.verticalCenter }
-        Label { id: clock; text: "--:--:--"; color: "#e6e8eb"; font.pixelSize: 18; font.bold: true; anchors.verticalCenter: parent.verticalCenter }
-        Rectangle { width: 40; height: 40; radius: 8; color: "#2a2f38"; anchors.verticalCenter: parent.verticalCenter
+        Label { text: "📶"; font.pixelSize: 18 }
+        Label { text: "🔋 87%"; color: "#aab2bd"; font.pixelSize: 14 }
+        Label { id: clock; text: "--:--:--"; color: "#e6e8eb"; font.pixelSize: 18; font.bold: true }
+        Rectangle { width: 40; height: 40; radius: 8; color: "#2a2f38"
             Label { anchors.centerIn: parent; text: "✕"; color: "#e6e8eb"; font.pixelSize: 16 }
             TapHandler { onTapped: Qt.quit() } }
     }
