@@ -17,6 +17,16 @@ ApplicationWindow {
         height: 96
     }
 
+    Loader {
+        anchors.top: topBar.bottom
+        anchors.left: parent.left
+        anchors.right: parent.right
+        anchors.bottom: parent.bottom
+        sourceComponent: topBar.activeNav === 0 ? dashboardComponent : placeholderComponent
+    }
+    Component { id: dashboardComponent; Dashboard {} }
+    Component { id: placeholderComponent; PlaceholderPage {} }
+
     Item {
         id: keySink
         anchors.fill: parent

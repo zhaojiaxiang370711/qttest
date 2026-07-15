@@ -28,6 +28,10 @@ qt_add_resources(qxzn_hmi "appqml"
     FILES
         qml/main.qml
         qml/TopBar.qml
+        qml/MetricPill.qml
+        qml/StatPanel.qml
+        qml/Dashboard.qml
+        qml/PlaceholderPage.qml
         resources/fonts/AlimamaShuHeiTi-Bold.ttf
 )
 set_target_properties(qxzn_hmi PROPERTIES WIN32_EXECUTABLE TRUE MACOSX_BUNDLE TRUE)
