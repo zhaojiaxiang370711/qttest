@@ -197,9 +197,11 @@ qml/TopBar.qml
 
 **Impact:** Low — the command works, but the UX degrades in large workspaces.
 
-### GAP-8: No Version / Compatibility Matrix
+### GAP-8: No Version / Compatibility Matrix ✅ CLOSED
 
-**Problem:** `doctor` reports Qt 6.11.1 is installed, and `info` reports qt_version "6", but there is no check for version compatibility. If the project requires Qt 6.11 but only 6.5 is installed, qtcli would not flag this.
+> **Status (2026-07-15): CLOSED** — `doctor` now compares the project's pinned `find_package(Qt6 X.Y)` against installed `QT_VERSION` and flags mismatches (qtcli `master` `eb11695`). Verified: this project (required 6.11, installed 6.11.1 → ok); a `6.99` pin → `mismatch`, doctor `ok=false`.
+
+**Problem:** `doctor` reports Qt 6.11.1 is installed, and `info` reports qt_version "6", but there is no check for version compatibility.
 
 **Enhancement:** Extend `doctor` or `info` to:
 - Parse `find_package(Qt6 6.11 REQUIRED ...)` and compare against installed version
