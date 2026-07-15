@@ -13,6 +13,7 @@ qt_standard_project_setup()
 add_library(qxzn_core STATIC
     src/config.h
     src/config.cpp
+    src/segment_input.cpp
 )
 target_include_directories(qxzn_core PUBLIC src)
 target_link_libraries(qxzn_core PUBLIC Qt6::Core)

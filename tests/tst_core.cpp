@@ -1,6 +1,7 @@
 #include <QtTest/QtTest>
 #include <QStringList>
 #include "config.h"
+#include "segment_input.h"
 
 class CoreTest : public QObject {
     Q_OBJECT
@@ -21,6 +22,19 @@ private slots:
         QCOMPARE(c.maxFps(), 30);
         QVERIFY(c.windowed());
         QCOMPARE(c.wsUrl(), QStringLiteral("ws://x/ws"));
+    }
+    void testSegmentMapping() {
+        using SI = SegmentInput;
+        QCOMPARE(SI::mapKey(Qt::Key_Q), QStringLiteral("head_left"));
+        QCOMPARE(SI::mapKey(Qt::Key_W), QStringLiteral("head_mid"));
+        QCOMPARE(SI::mapKey(Qt::Key_E), QStringLiteral("head_mid"));
+        QCOMPARE(SI::mapKey(Qt::Key_R), QStringLiteral("head_right"));
+        QCOMPARE(SI::mapKey(Qt::Key_X), QStringLiteral("chin"));
+        QCOMPARE(SI::mapKey(Qt::Key_A), QStringLiteral("waist_left"));
+        QCOMPARE(SI::mapKey(Qt::Key_S), QStringLiteral("waist_mid"));
+        QCOMPARE(SI::mapKey(Qt::Key_D), QStringLiteral("waist_mid"));
+        QCOMPARE(SI::mapKey(Qt::Key_F), QStringLiteral("waist_right"));
+        QCOMPARE(SI::mapKey(Qt::Key_Space), QStringLiteral(""));
     }
 };
 
