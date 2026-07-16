@@ -1,5 +1,6 @@
 import QtQuick
 import QtQuick.Controls
+import QxznHmi
 
 ApplicationWindow {
     width: 1280
@@ -33,7 +34,7 @@ ApplicationWindow {
         id: keySink
         anchors.fill: parent
         focus: true
-        Keys.onPressed: function(event) { session.onKey(event.key) }
+        Keys.onPressed: function(event) { SessionModel.onKey(event.key) }
     }
     Component.onCompleted: keySink.forceActiveFocus()
 }
