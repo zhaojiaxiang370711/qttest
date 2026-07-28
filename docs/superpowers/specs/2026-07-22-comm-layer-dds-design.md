@@ -1,7 +1,7 @@
 # qxzn-hmi-qt — DDS 直连通信层设计
 
 - 日期：2026-07-22
-- 状态：已批准，待实现规划
+- 状态：已实现并通过本地单元测试、QML 验证及真实 DDS round-trip；待目标机真机验证
 - 阶段：D2a 通信层第一切片
 - 关联：`docs/PORTING_HANDOFF.md`、`docs/superpowers/specs/2026-07-15-qxzn-hmi-shell-design.md`
 - DDS 核心：`/home/x/code/pd02/dds-fastdds-core`
@@ -120,17 +120,22 @@ void hitReceived(
 QML 方法：
 
 ```cpp
-Q_INVOKABLE bool sendLedSegments(
+Q_INVOKABLE bool flashSegments(
     const QStringList &segments,
     const QColor &color,
-    int durationMs = 180,
-    const QString &sessionId = QString(),
-    const QString &beatId = QString(),
-    const QString &reason = QStringLiteral("qt_hmi"));
+    int durationMs);
+
+Q_INVOKABLE bool sendLedCommand(
+    const QStringList &segments,
+    const QColor &color,
+    int durationMs,
+    const QString &sessionId,
+    const QString &beatId,
+    const QString &reason);
 
 Q_INVOKABLE bool turnOffAllLeds(
-    const QString &sessionId = QString(),
-    const QString &reason = QStringLiteral("qt_hmi_all_off"));
+    const QString &sessionId,
+    const QString &reason);
 ```
 
 返回 `false` 表示命令未发布；详细原因写入 `lastError`。QML 不接触 C 结构体。
@@ -178,12 +183,14 @@ DDS `HitEvent.segment` 按协议应为标准逻辑 segment。Qt 仍只接受以�
 
 | 用途 | CLI | 环境变量 | 默认值 |
 |---|---|---|---|
-| 禁用 DDS | `--no-dds` | `PD02_DDS_ENABLE` | 启用 |
+| DDS 开关 | `--dds` / `--no-dds` | `PD02_DDS_ENABLE` | 启用 |
 | core 路径 | `--dds-core-lib PATH` | `PD02_DDS_CORE_LIB` | 应用同目录的 `libqxzn_pd02_dds_core.so`；开发环境再尝试 PD02 core build 路径 |
 | domain | `--dds-domain-id N` | `PD02_DDS_DOMAIN_ID` | `37` |
-| multicast | `--dds-multicast` | `PD02_DDS_MULTICAST` | 关闭 |
+| multicast | `--dds-multicast` / `--no-dds-multicast` | `PD02_DDS_MULTICAST` | 关闭 |
 | peers | `--dds-initial-peers VALUE` | `PD02_DDS_INITIAL_PEERS` | `127.0.0.1` |
 | participant | `--dds-participant NAME` | `PD02_DDS_PARTICIPANT_NAME` | `pd02-qt-hmi` |
+| hit topic | `--dds-hit-event-topic NAME` | `PD02_DDS_HIT_EVENT_TOPIC` | `pd02/hit/event` |
+| LED topic | `--dds-led-command-topic NAME` | `PD02_DDS_LED_COMMAND_TOPIC` | `pd02/led/command` |
 
 继续保留现有 `--ws-url`/`Config.wsUrl`，以免破坏 CLI 兼容性，但 DDS-direct 第一切片不读取它。`--api-base` 继续作为后续 `RestClient` 的入口。
 
@@ -194,7 +201,7 @@ DDS `HitEvent.segment` 按协议应为标准逻辑 segment。Qt 仍只接受以�
 - 提供 `QXZN_HMI_DDS=OFF` 构建选项，使 qxzn-hmi-qt 独立仓在没有 PD02 sibling checkout 时仍能编译；该模式保留相同 QML singleton/API，但固定为 `disabled`。
 - DDS-enabled 构建找不到 ABI header 时配置阶段明确失败，不静默退化。
 - 动态库不在链接阶段加入 qxzn_hmi，因此运行时缺库不会阻止程序启动。
-- 部署时优先把目标架构的 `.so` 放到 qxzn_hmi 可执行文件同目录；也可用 `PD02_DDS_CORE_LIB` 指定绝对路径。
+- 部署时优先把目标架构的 `.so` 放到 qxzn_hmi 可执行文件同目录；也可用 `PD02_DDS_CORE_LIB` 指定绝对路径。仅复制 core 本身不够：必须用 `ldd` 确认匹配架构的 Fast DDS/Fast CDR/foonathan 等非系统依赖均可解析，可利用 core 的 `$ORIGIN` RPATH 同目录打包或加载 PD02 Fast DDS 环境。
 
 ## 9. QML/UI 接入
 
@@ -210,21 +217,14 @@ DDS `HitEvent.segment` 按协议应为标准逻辑 segment。Qt 仍只接受以�
 
 ### 9.2 TopBar
 
-现有静态网络区域增加 DDS 状态提示：
-
-- `ready`/`receiving`：正常色。
-- `loading`：提示初始化中。
-- `disabled`：弱化色并显示离线模式。
-- `error`：危险色，点击/悬停可通过现有 callout 显示 `lastError`。
-
-文案使用“DDS 已就绪/正在接收”，不用“已连接”，因为本切片没有远端 match 状态。
+现有 64×64 静态网络区域保持原几何，图标色与小圆点显示 DDS 状态：`ready/receiving` 正常色、`loading` 警告色、`disabled` 弱化色、`error` 危险色；error 点击通过现有 callout 显示 `lastError`。详细“DDS 已就绪/接收中/离线模式”文案显示在 DevicePage 和 DeviceHitTestPanel，不使用“已连接”，因为本切片没有远端 match 状态。
 
 ## 10. 错误处理与恢复
 
 - `--no-dds` 或 DDS-disabled 构建：状态为 `disabled`，所有发布调用返回 `false`，不输出重复错误。
 - 动态库缺失、符号缺失或 create 失败：状态为 `error`；记录可操作错误，并每 2 秒重试，最长退避到 10 秒。
 - `take_hit_event` 返回错误：停止轮询、销毁 context、进入重试；不会在 UI tick 上持续刷日志。
-- `publish_led_command` 失败：本次调用返回 `false`；连续错误触发 context 重建。
+- `publish_led_command` 失败：本次调用返回 `false`；连续 3 次失败异步触发 context 重建，任一成功发布会重置计数。
 - 非法 segment：丢弃，不更新 `SessionModel`。
 - HMI 在所有错误状态下保持可操作；键盘回退不依赖 DDS。
 
@@ -250,7 +250,7 @@ DDS `HitEvent.segment` 按协议应为标准逻辑 segment。Qt 仍只接受以�
 1. 创建测试 publisher context。
 2. 向独立测试 topic 发布一条 `HitEvent`。
 3. 等待 `DdsBridge.hitReceived` 并核对 segment/metadata。
-4. 由 `DdsBridge.sendLedSegments` 发布，再由测试 context take 并核对 wire 字段。
+4. 由 `DdsBridge.sendLedCommand` 发布，再由测试 context take 并核对 wire 字段。
 
 测试使用独立 topic 名和 participant 名，不操作真实 LED。没有 core 库时明确 skip，不将 skip 报为通过实机验证。
 

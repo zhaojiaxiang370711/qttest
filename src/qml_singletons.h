@@ -1,6 +1,10 @@
 #pragma once
 
 #include "config.h"
+#include "course_catalog.h"
+#include "course_playback_controller.h"
+#include "course_video_surface.h"
+#include "dds_bridge.h"
 #include "session_model.h"
 
 #include <QCoreApplication>
@@ -19,6 +23,45 @@ public:
         auto *config = new Config;
         config->parse(QCoreApplication::arguments().mid(1));
         return config;
+    }
+};
+
+struct CourseCatalogQmlForeign {
+    Q_GADGET
+    QML_FOREIGN(CourseCatalog)
+    QML_NAMED_ELEMENT(CourseCatalog)
+    QML_SINGLETON
+public:
+    static CourseCatalog *create(QQmlEngine *, QJSEngine *) {
+        return new CourseCatalog;
+    }
+};
+
+struct CoursePlayerQmlForeign {
+    Q_GADGET
+    QML_FOREIGN(CoursePlaybackController)
+    QML_NAMED_ELEMENT(CoursePlayer)
+    QML_SINGLETON
+public:
+    static CoursePlaybackController *create(QQmlEngine *, QJSEngine *) {
+        return new CoursePlaybackController;
+    }
+};
+
+struct CourseVideoSurfaceQmlForeign {
+    Q_GADGET
+    QML_FOREIGN(CourseVideoSurface)
+    QML_NAMED_ELEMENT(CourseVideoSurface)
+};
+
+struct DdsBridgeQmlForeign {
+    Q_GADGET
+    QML_FOREIGN(DdsBridge)
+    QML_NAMED_ELEMENT(DdsBridge)
+    QML_SINGLETON
+public:
+    static DdsBridge *create(QQmlEngine *, QJSEngine *) {
+        return new DdsBridge;
     }
 };
 

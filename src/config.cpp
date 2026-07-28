@@ -1,8 +1,73 @@
 #include "config.h"
 
+#include <QtGlobal>
+
+namespace {
+
+bool envBool(const char *name, bool fallback) {
+    if (!qEnvironmentVariableIsSet(name))
+        return fallback;
+    const QString value = QString::fromUtf8(qgetenv(name)).trimmed().toLower();
+    return value == QStringLiteral("1") || value == QStringLiteral("true") ||
+           value == QStringLiteral("yes") || value == QStringLiteral("on");
+}
+
+QString envString(const char *name, const QString &fallback) {
+    if (!qEnvironmentVariableIsSet(name))
+        return fallback;
+    const QString value = QString::fromUtf8(qgetenv(name)).trimmed();
+    return value.isEmpty() ? fallback : value;
+}
+
+int envInt(const char *name, int fallback) {
+    if (!qEnvironmentVariableIsSet(name))
+        return fallback;
+    bool ok = false;
+    const int value = QString::fromUtf8(qgetenv(name)).trimmed().toInt(&ok);
+    return ok ? value : fallback;
+}
+
+} // namespace
+
 Config::Config(QObject *parent) : QObject(parent) {}
 
+void Config::resetDefaults() {
+    m_wsUrl = QStringLiteral("ws://localhost:8000/ws");
+    m_apiBase = QStringLiteral("http://localhost:8000");
+    m_gameId = QStringLiteral("qxzn_hmi");
+    m_difficulty = QStringLiteral("simple");
+    m_maxFps = 60;
+    m_windowed = false;
+    m_initialNav = QStringLiteral("home");
+    m_initialOverlay.clear();
+    m_mediaRoot.clear();
+    m_initialCourse = QStringLiteral("special_practice");
+    m_initialSubgame.clear();
+    m_ddsEnabled = true;
+    m_ddsCoreLib.clear();
+    m_ddsDomainId = 37;
+    m_ddsMulticast = false;
+    m_ddsInitialPeers = QStringLiteral("127.0.0.1");
+    m_ddsParticipant = QStringLiteral("pd02-qt-hmi");
+    m_ddsHitEventTopic = QStringLiteral("pd02/hit/event");
+    m_ddsLedCommandTopic = QStringLiteral("pd02/led/command");
+}
+
 void Config::parse(const QStringList &args) {
+    resetDefaults();
+
+    m_mediaRoot = envString("QXZN_MEDIA_DIR", m_mediaRoot);
+    m_ddsEnabled = envBool("PD02_DDS_ENABLE", m_ddsEnabled);
+    m_ddsCoreLib = envString("PD02_DDS_CORE_LIB", m_ddsCoreLib);
+    const int environmentDomainId = envInt("PD02_DDS_DOMAIN_ID", m_ddsDomainId);
+    if (environmentDomainId >= 0)
+        m_ddsDomainId = environmentDomainId;
+    m_ddsMulticast = envBool("PD02_DDS_MULTICAST", m_ddsMulticast);
+    m_ddsInitialPeers = envString("PD02_DDS_INITIAL_PEERS", m_ddsInitialPeers);
+    m_ddsParticipant = envString("PD02_DDS_PARTICIPANT_NAME", m_ddsParticipant);
+    m_ddsHitEventTopic = envString("PD02_DDS_HIT_EVENT_TOPIC", m_ddsHitEventTopic);
+    m_ddsLedCommandTopic = envString("PD02_DDS_LED_COMMAND_TOPIC", m_ddsLedCommandTopic);
+
     for (int i = 0; i < args.size(); ++i) {
         const QString &a = args.at(i);
         auto next = [&]() -> QString { return (i + 1 < args.size()) ? args.at(++i) : QString(); };
@@ -12,6 +77,26 @@ void Config::parse(const QStringList &args) {
         else if (a == QStringLiteral("--difficulty")) m_difficulty = next();
         else if (a == QStringLiteral("--max-fps")) m_maxFps = next().toInt();
         else if (a == QStringLiteral("--windowed")) m_windowed = true;
+        else if (a == QStringLiteral("--nav")) m_initialNav = next();
+        else if (a == QStringLiteral("--overlay")) m_initialOverlay = next();
+        else if (a == QStringLiteral("--media-root")) m_mediaRoot = next();
+        else if (a == QStringLiteral("--course")) m_initialCourse = next();
+        else if (a == QStringLiteral("--subgame")) m_initialSubgame = next();
+        else if (a == QStringLiteral("--dds")) m_ddsEnabled = true;
+        else if (a == QStringLiteral("--no-dds")) m_ddsEnabled = false;
+        else if (a == QStringLiteral("--dds-core-lib")) m_ddsCoreLib = next();
+        else if (a == QStringLiteral("--dds-domain-id")) {
+            bool ok = false;
+            const int value = next().toInt(&ok);
+            if (ok && value >= 0)
+                m_ddsDomainId = value;
+        }
+        else if (a == QStringLiteral("--dds-multicast")) m_ddsMulticast = true;
+        else if (a == QStringLiteral("--no-dds-multicast")) m_ddsMulticast = false;
+        else if (a == QStringLiteral("--dds-initial-peers")) m_ddsInitialPeers = next();
+        else if (a == QStringLiteral("--dds-participant")) m_ddsParticipant = next();
+        else if (a == QStringLiteral("--dds-hit-event-topic")) m_ddsHitEventTopic = next();
+        else if (a == QStringLiteral("--dds-led-command-topic")) m_ddsLedCommandTopic = next();
         // unknown args ignored
     }
     emit configChanged();

@@ -13,3 +13,13 @@ QString SegmentInput::mapKey(int qtKey) {
     default: return QString();
     }
 }
+
+bool SegmentInput::isStandardSegment(const QString &segment) {
+    return segment == QStringLiteral("head_left") ||
+           segment == QStringLiteral("head_mid") ||
+           segment == QStringLiteral("head_right") ||
+           segment == QStringLiteral("chin") ||
+           segment == QStringLiteral("waist_left") ||
+           segment == QStringLiteral("waist_mid") ||
+           segment == QStringLiteral("waist_right");
+}

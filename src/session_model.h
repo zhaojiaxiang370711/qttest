@@ -19,6 +19,7 @@ class SessionModel : public QObject {
 public:
     explicit SessionModel(QObject *parent = nullptr);
     Q_INVOKABLE void onKey(int qtKey);
+    Q_INVOKABLE void onSegment(const QString &segment);
     void onTick();
     int strikes() const { return m_strikes; }
     double calories() const { return m_calories; }

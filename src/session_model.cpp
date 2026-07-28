@@ -5,12 +5,15 @@
 SessionModel::SessionModel(QObject *parent) : QObject(parent) {}
 
 void SessionModel::onKey(int qtKey) {
-    const QString seg = SegmentInput::mapKey(qtKey);
-    if (seg.isEmpty())
+    onSegment(SegmentInput::mapKey(qtKey));
+}
+
+void SessionModel::onSegment(const QString &segment) {
+    if (!SegmentInput::isStandardSegment(segment))
         return;
     m_strikes += 1;
     m_calories += 0.8;
-    m_lastSegment = seg;
+    m_lastSegment = segment;
     const qint64 now = QDateTime::currentMSecsSinceEpoch();
     m_hitTimes.append(now);
     const qint64 cutoff = now - 60000;

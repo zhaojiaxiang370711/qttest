@@ -3,3 +3,5 @@
 *.log
 .DS_Store
 /.superpowers/
+# Local external media root for course playback testing (never qrc/git).
+/media/
