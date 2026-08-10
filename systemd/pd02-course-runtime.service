@@ -1,0 +1,18 @@
+[Unit]
+Description=PD02 Qt HMI main runtime
+After=graphical-session.target
+Wants=graphical-session.target
+
+[Service]
+Type=forking
+PIDFile=%t/pd02-qxzn-hmi.pid
+Environment=QXZN_HMI_MONITOR=HDMI-0
+ExecStart=/home/x/code/pd02/qxzn-hmi-qt/scripts/runtime/launch_qxzn_hmi_external_display.sh start
+ExecStop=/home/x/code/pd02/qxzn-hmi-qt/scripts/runtime/launch_qxzn_hmi_external_display.sh stop
+Restart=on-failure
+RestartSec=2
+TimeoutStartSec=30
+TimeoutStopSec=10
+
+[Install]
+WantedBy=default.target
