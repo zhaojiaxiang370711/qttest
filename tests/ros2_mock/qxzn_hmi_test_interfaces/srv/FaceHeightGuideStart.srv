@@ -1,0 +1,5 @@
+# Temporary test copy of the vision-owned service contract.
+string request_id
+---
+bool success
+string message

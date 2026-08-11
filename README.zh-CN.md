@@ -14,6 +14,33 @@ cmake --build build --parallel 6        # PD02 规则：并发不得超过 6
 ./build/qxzn_hmi -platform offscreen --windowed --no-dds --quit-after-ms 800
 ```
 
+### 自动高度引导服务
+
+设备页“自动高度调整”通过 ROS2 同步服务
+`/face_height_guide/start` 发起请求。Qt 界面不会阻塞；服务返回后会展示
+`started`、`no person` 或具体错误。每次请求自动生成唯一 `request_id`。
+
+运行时会从 ROS graph 发现完整服务类型。如果接口包尚未进入当前 ROS
+环境，可显式配置：
+
+```bash
+export QXZN_ROS_OVERLAY_SETUP=/path/to/vision_ws/install/setup.bash
+export QXZN_FACE_HEIGHT_GUIDE_SERVICE_TYPE=your_interfaces/srv/FaceHeightGuideStart
+```
+
+还可通过 `QXZN_ROS_SETUP`、`QXZN_FACE_HEIGHT_GUIDE_SERVICE` 和
+`QXZN_FACE_HEIGHT_GUIDE_TIMEOUT_SEC` 覆盖 ROS 基础环境、服务名和超时。
+
+视觉服务尚未上线时，可用仓库内的临时接口包和模拟服务完成真实 ROS2
+request/response 联调：
+
+```bash
+tests/ros2_mock/run_integration_test.sh
+```
+
+模拟服务仅用于测试：普通 `request_id` 返回 `started`，包含
+`no-person` 的请求返回 `no person`。它不会安装到系统 ROS 环境。
+
 DDS 支持默认开启，编译时只读取相邻 `../dds-fastdds-core` 的稳定 C ABI 头文件；独立/离线构建可加 `-DQXZN_HMI_DDS=OFF`。程序运行时通过 `QLibrary` 动态加载 `libqxzn_pd02_dds_core.so`，不会在链接阶段依赖 Fast DDS。
 
 构建还需要 GStreamer 1.20+ 开发包（`pkg-config` 提供 `gstreamer-1.0` / `app-1.0` / `video-1.0` / `audio-1.0`），用于课程播放器；**不使用** Qt Multimedia。
@@ -88,6 +115,30 @@ qtcli --json --project . qml-audit --strict
 ```
 
 测试集：`tst_core`（配置、目录、媒体解析、解码策略、视频面几何、DDS bridge）、`tst_course_video_surface`（在 software 与默认两种场景图后端下渲染合成帧）、`tst_course_playback`（真实媒体生命周期：首帧 → `avdec_h264` → 暂停/拖动/标记/音量/静音 → 结束 → 重播 → 停止），以及 `dds_smoke` 和 QML smoke（首页 + `course_lesson` 缺媒体运行）。
+
+## 训练统计持久化（SQLite）
+
+`StatsStore`（`src/stats_store.h/.cpp`，Qt SQL + QSQLITE 驱动）把训练统计落到本地 SQLite，重启后保留：
+
+- `daily_stats`：每日击打次数（键盘与 DDS 击打都经 `SessionModel` 转发记录）；
+- `sessions`：每次应用运行一行（开始/结束时间、时长、击打数），行数即累计训练次数。
+
+数据库路径由 `QStandardPaths::AppDataLocation` 决定（`~/.local/share/qxzn/qxzn_hmi/stats.db`）。设备页"训练统计"卡片点击可查看今日/累计数据；统计也注册为 QML 单例 `StatsStore`（`todayStrikes` / `totalStrikes` / `totalSessions`）。
+
+## 部署到 1.222
+
+```bash
+scripts/deploy_1_222.sh          # 构建 + 打包 Qt/GStreamer 运行时 + rsync + 桌面快捷方式
+scripts/deploy_1_222.sh --dry-run
+```
+
+部署后可继续沿用 `pd02-course-runtime.service` 这个交接单元名称，但其
+`ExecStart` 应安装为 `scripts/runtime/launch_qxzn_hmi_external_display.sh`。
+启动器在目标扩展屏检测到并校验 `QXZN HMI` 全屏窗口后，写入
+`$XDG_RUNTIME_DIR/pd02-qxzn-hmi-ready`。VRBeatsKit 的桌面自启动会等待该
+就绪标记，随后由游戏管理后端暂停 Qt 主应用并启动 VR；VR 退出后恢复 Qt。
+
+目标机只有系统 Qt 6.4（不满足 6.8 要求），脚本把本机构建产物与 Qt 6.11 运行时（lib/plugins/qml + ldd 依赖闭包）打包到 `/home/x/code/pd02/qxzn-hmi-qt/dist`，经 `run-qxzn-hmi.sh` 包装脚本启动，并在 `~/桌面` 写 `qxzn-hmi.desktop` 快捷方式。不部署 DDS core 库（设备页 DDS 状态显示"离线模式"）与课程媒体。
 
 ## 许可证
 

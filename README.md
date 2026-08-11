@@ -14,6 +14,36 @@ cmake --build build --parallel 6        # PD02 rule: never more than 6 jobs
 ./build/qxzn_hmi -platform offscreen --windowed --no-dds --quit-after-ms 800   # headless smoke
 ```
 
+### Automatic height guide service
+
+The device page calls the synchronous ROS2 service
+`/face_height_guide/start`. The UI remains responsive while waiting and shows
+the returned `started`, `no person`, or error result. A unique `request_id` is
+generated for every request.
+
+The complete service type is discovered from the live ROS graph. If the
+custom interface package is provided by an overlay, configure it explicitly:
+
+```bash
+export QXZN_ROS_OVERLAY_SETUP=/path/to/vision_ws/install/setup.bash
+export QXZN_FACE_HEIGHT_GUIDE_SERVICE_TYPE=your_interfaces/srv/FaceHeightGuideStart
+```
+
+`QXZN_ROS_SETUP`, `QXZN_FACE_HEIGHT_GUIDE_SERVICE`, and
+`QXZN_FACE_HEIGHT_GUIDE_TIMEOUT_SEC` override the base setup, service name,
+and timeout.
+
+Until the vision service is available, run a real ROS2 request/response test
+against the temporary interface package and mock server in this repository:
+
+```bash
+tests/ros2_mock/run_integration_test.sh
+```
+
+The mock returns `started` for normal request IDs and `no person` when the ID
+contains `no-person`. It is built into a temporary prefix and is not installed
+into the system ROS environment.
+
 The build needs GStreamer 1.20+ development packages (`pkg-config` for `gstreamer-1.0` / `app-1.0` / `video-1.0` / `audio-1.0`), required at configure time for the course player. Qt Multimedia is **not** used.
 
 DDS support is enabled by default and compiles against the stable C ABI header in the sibling `../dds-fastdds-core` checkout. For a standalone/offline build use `-DQXZN_HMI_DDS=OFF`; the same `DdsBridge` QML API remains available in `disabled` state. The HMI loads `libqxzn_pd02_dds_core.so` dynamically at runtime and never links Fast DDS directly.
@@ -118,6 +148,24 @@ Test suite: `tst_core` (config, catalog, media resolver, decoder policy, video-s
 - Learning page combines the course carousel and the 5 entry cards on one page (Godot draws them in separate modes); carousel height is compressed from 786 to 552 px to fit.
 - Device tool grid is 13 cards × 4 columns per spec (Godot: 12 × 3); card height compressed accordingly.
 - Font metrics differ between Qt and Godot text engines; text baselines may deviate by ±2–3 px. Rects, colors, and font-size ladders follow Godot values exactly (1280-base ×1.5, font ×1.56).
+
+## Training stats persistence (SQLite)
+
+`StatsStore` (`src/stats_store.h/.cpp`, Qt SQL with the QSQLITE driver) persists training stats to a local SQLite database so they survive restarts:
+
+- `daily_stats`: strikes per day (keyboard and DDS hits are both forwarded via `SessionModel`);
+- `sessions`: one row per app run (start/end time, duration, strikes) — the row count is the total session count.
+
+The database lives at `QStandardPaths::AppDataLocation` (`~/.local/share/qxzn/qxzn_hmi/stats.db`). The device page "训练统计" card shows today/lifetime numbers; stats are also exposed as the `StatsStore` QML singleton (`todayStrikes` / `totalStrikes` / `totalSessions`).
+
+## Deploy to 1.222
+
+```bash
+scripts/deploy_1_222.sh          # build + bundle Qt/GStreamer runtime + rsync + desktop shortcut
+scripts/deploy_1_222.sh --dry-run
+```
+
+The target only ships system Qt 6.4 (below the required 6.8), so the script bundles the local build with the Qt 6.11 runtime (lib/plugins/qml + an ldd dependency closure) into `/home/x/code/pd02/qxzn-hmi-qt/dist`, launches via the `run-qxzn-hmi.sh` wrapper, and writes a `qxzn-hmi.desktop` shortcut into `~/桌面`. The DDS core library (device page shows "离线模式") and course media are not deployed.
 
 ## License
 

@@ -1,3 +1,12 @@
+// ============================================================
+// 【教学导读】配置解析：默认值 -> 环境变量 -> 命令行（优先级递增）
+// parse() 的顺序体现优先级：先 resetDefaults，再读环境变量
+// （PD02_DDS_* / QXZN_MEDIA_DIR），最后扫命令行参数，
+// 所以 --xxx 命令行参数永远覆盖环境变量和默认值。
+// 匿名命名空间（namespace { ... }）是 C++ 惯例：里面的函数只在本文件可见，
+// 等价于 static，不会污染外部符号表。
+// 配套阅读：src/config.h
+// ============================================================
 #include "config.h"
 
 #include <QtGlobal>
@@ -56,6 +65,7 @@ void Config::resetDefaults() {
 void Config::parse(const QStringList &args) {
     resetDefaults();
 
+    // 第一步：读环境变量（PD02_DDS_* / QXZN_MEDIA_DIR）作为基础值
     m_mediaRoot = envString("QXZN_MEDIA_DIR", m_mediaRoot);
     m_ddsEnabled = envBool("PD02_DDS_ENABLE", m_ddsEnabled);
     m_ddsCoreLib = envString("PD02_DDS_CORE_LIB", m_ddsCoreLib);
@@ -68,6 +78,7 @@ void Config::parse(const QStringList &args) {
     m_ddsHitEventTopic = envString("PD02_DDS_HIT_EVENT_TOPIC", m_ddsHitEventTopic);
     m_ddsLedCommandTopic = envString("PD02_DDS_LED_COMMAND_TOPIC", m_ddsLedCommandTopic);
 
+    // 第二步：命令行参数覆盖环境变量，优先级更高
     for (int i = 0; i < args.size(); ++i) {
         const QString &a = args.at(i);
         auto next = [&]() -> QString { return (i + 1 < args.size()) ? args.at(++i) : QString(); };
@@ -99,5 +110,6 @@ void Config::parse(const QStringList &args) {
         else if (a == QStringLiteral("--dds-led-command-topic")) m_ddsLedCommandTopic = next();
         // unknown args ignored
     }
+    // 解析完成后统一发一次变更通知（对应 config.h 里所有属性共用的 NOTIFY 信号）
     emit configChanged();
 }

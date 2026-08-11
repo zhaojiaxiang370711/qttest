@@ -79,6 +79,8 @@ Item {
         case "sound_test": return "music";
         case "display_settings": return "monitor-play";
         case "dev_tools": return "sliders";
+        case "app_version": return "activity";
+        case "training_stats": return "activity";
         }
         return "activity";
     }
@@ -103,6 +105,17 @@ Item {
         case "display_settings":
             AppState.openOverlay("display");
             break;
+        case "app_version":
+            AppState.showCallout("info", "应用版本", "qxzn_hmi v" + Qt.application.version);
+            break;
+        case "training_stats":
+            // StatsStore 是 C++ 单例（src/stats_store.h）：数据来自 SQLite，重启后仍在
+            AppState.showCallout("success", "训练统计",
+                "今日出拳 " + StatsStore.todayStrikes
+                + " · 累计出拳 " + StatsStore.totalStrikes
+                + " · 累计训练 " + StatsStore.totalSessions + " 次");
+            break;
+
         default:
             // pump_start / pump_stop / sound_test / language_settings
             page.notPorted(title);

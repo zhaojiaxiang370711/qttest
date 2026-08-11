@@ -17,12 +17,46 @@ Item {
         return Qt.rgba(c.r, c.g, c.b, a);
     }
 
-    // idle 静态种子（Godot height_control_status 空 -> progress 0）。
-    readonly property real phaseProgress: 0.0
-    readonly property color phaseColor: Theme.warn   // idle -> HMI_WARN
+    readonly property real phaseProgress: FaceHeightGuide.state === "started" ? 1.0
+                                        : FaceHeightGuide.busy ? 0.35 : 0.0
+    readonly property color phaseColor: FaceHeightGuide.state === "started" ? Theme.success
+                                      : FaceHeightGuide.state === "error" || FaceHeightGuide.state === "no_person"
+                                        ? Theme.danger : Theme.warn
 
-    function notPorted(name) {
-        AppState.showCallout("info", "未移植", name + "将在后续阶段移植");
+    function phaseTitle() {
+        if (FaceHeightGuide.busy)
+            return "正在识别人脸";
+        if (FaceHeightGuide.state === "started")
+            return "引导已启动";
+        if (FaceHeightGuide.state === "no_person")
+            return "未检测到人员";
+        if (FaceHeightGuide.state === "error")
+            return "启动失败";
+        return "等待开始";
+    }
+
+    function phaseValue() {
+        if (FaceHeightGuide.busy)
+            return "请求中";
+        if (FaceHeightGuide.state === "started")
+            return "已开始";
+        if (FaceHeightGuide.state === "no_person")
+            return "无人脸";
+        if (FaceHeightGuide.state === "error")
+            return "失败";
+        return "待开始";
+    }
+
+    Connections {
+        target: FaceHeightGuide
+        function onResultReceived(success, message, requestId) {
+            if (success)
+                AppState.showCallout("success", "自动高度调整", "视觉引导已启动");
+            else if (message.toLowerCase() === "no person")
+                AppState.showCallout("warning", "未检测到人员", "请站到机器正前方后重试");
+            else
+                AppState.showCallout("error", "启动失败", message);
+        }
     }
 
     FontMetrics { id: fm22; font.family: Theme.bodyFamily; font.pixelSize: Theme.fontPx(14) }
@@ -126,6 +160,7 @@ Item {
                 height: 56
                 radius: Theme.radiusButton
                 color: root.alpha(Theme.success, 0.10)
+                opacity: FaceHeightGuide.busy ? 0.55 : 1.0
                 border.width: 1
                 border.color: root.alpha(Theme.success, 0.28)
                 Text {
@@ -136,9 +171,10 @@ Item {
                 }
                 ClickFlash { id: startFlash; radius: startBtn.radius; flashColor: Theme.success }
                 TapHandler {
+                    enabled: !FaceHeightGuide.busy
                     onTapped: {
                         startFlash.flash();
-                        root.notPorted("开始自动高度调整");
+                        FaceHeightGuide.start();
                     }
                 }
             }
@@ -164,7 +200,7 @@ Item {
                     x: 18
                     y: 56 - fm20.ascent
                     width: 240
-                    text: "等待开始"
+                    text: root.phaseTitle()
                     color: Theme.text
                     font.pixelSize: Theme.fontPx(13)
                     elide: Text.ElideRight
@@ -173,7 +209,7 @@ Item {
                     x: progressBox.width - 130
                     y: 56 - fm19.ascent
                     width: 112
-                    text: "待开始"
+                    text: root.phaseValue()
                     color: root.phaseColor
                     font.pixelSize: Theme.fontPx(12)
                     elide: Text.ElideRight
@@ -208,7 +244,7 @@ Item {
                     y: 102
                     width: progressBox.width - 36
                     height: 24
-                    text: "等待高度控制状态"
+                    text: FaceHeightGuide.message
                     color: Theme.muted
                     font.pixelSize: Theme.fontPx(7)
                     elide: Text.ElideRight

@@ -20,6 +20,7 @@
 #endif
 #include "segment_input.h"
 #include "session_model.h"
+#include "stats_store.h"
 
 namespace {
 
@@ -781,6 +782,41 @@ private slots:
         s.onSegment(QStringLiteral("head_center"));
         QCOMPARE(s.strikes(), 0);
         QVERIFY(s.lastSegment().isEmpty());
+    }
+    // StatsStore：写入 -> 销毁 -> 重新打开，验证数据真的落盘持久化
+    void testStatsStorePersistsAcrossInstances() {
+        QTemporaryDir dir;
+        QVERIFY(dir.isValid());
+        const QString dbPath = dir.filePath(QStringLiteral("stats.db"));
+        {
+            StatsStore store(nullptr, dbPath);
+            QVERIFY(store.ready());
+            QCOMPARE(store.todayStrikes(), 0);
+            QCOMPARE(store.totalSessions(), 0);
+            store.beginSession();
+            store.recordHit();
+            store.recordHit();
+            store.endSession(12, 2);
+            QCOMPARE(store.todayStrikes(), 2);
+            QCOMPARE(store.totalStrikes(), 2);
+            QCOMPARE(store.totalSessions(), 1);
+        }
+        {   // 新实例打开同一数据库文件：统计值应从磁盘读回
+            StatsStore reopened(nullptr, dbPath);
+            QVERIFY(reopened.ready());
+            QCOMPARE(reopened.todayStrikes(), 2);
+            QCOMPARE(reopened.totalStrikes(), 2);
+            QCOMPARE(reopened.totalSessions(), 1);
+        }
+    }
+    // 无效路径（目录不存在且不可创建）时 ready 为 false，读写静默降级不崩溃
+    void testStatsStoreOpenFailureIsNonFatal() {
+        StatsStore store(nullptr, QStringLiteral("/nonexistent-dir-x/stats.db"));
+        QVERIFY(!store.ready());
+        store.beginSession();
+        store.recordHit();
+        store.endSession(1, 1);
+        QCOMPARE(store.todayStrikes(), 0);
     }
 };
 

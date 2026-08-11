@@ -5,3 +5,6 @@
 /.superpowers/
 # Local external media root for course playback testing (never qrc/git).
 /media/
+
+# Local staging for 1.222 deployment (binary + bundled Qt runtime).
+/dist-1.222/

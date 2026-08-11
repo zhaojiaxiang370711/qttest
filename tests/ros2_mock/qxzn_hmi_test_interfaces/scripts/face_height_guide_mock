@@ -1,0 +1,53 @@
+#!/usr/bin/env python3
+
+import rclpy
+from rclpy.executors import ExternalShutdownException
+from rclpy.node import Node
+
+from qxzn_hmi_test_interfaces.srv import FaceHeightGuideStart
+
+
+class FaceHeightGuideMock(Node):
+    def __init__(self) -> None:
+        super().__init__("face_height_guide_mock")
+        self.create_service(
+            FaceHeightGuideStart,
+            "/face_height_guide/start",
+            self.handle_start,
+        )
+        self.get_logger().info("mock service ready: /face_height_guide/start")
+
+    def handle_start(self, request, response):
+        request_id = request.request_id.strip()
+        if "no-person" in request_id.lower():
+            response.success = False
+            response.message = "no person"
+        else:
+            response.success = True
+            response.message = "started"
+        self.get_logger().info(
+            f"request_id={request_id!r} success={response.success} message={response.message!r}"
+        )
+        return response
+
+
+def main() -> None:
+    rclpy.init()
+    node = FaceHeightGuideMock()
+    try:
+        rclpy.spin(node)
+    except (KeyboardInterrupt, ExternalShutdownException):
+        pass
+    except Exception:
+        # ros2run handles SIGTERM by shutting down the shared context first;
+        # some rclpy versions then surface RCLError from the pending wait set.
+        if rclpy.ok():
+            raise
+    finally:
+        node.destroy_node()
+        if rclpy.ok():
+            rclpy.shutdown()
+
+
+if __name__ == "__main__":
+    main()

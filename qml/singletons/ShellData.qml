@@ -1,4 +1,15 @@
 pragma Singleton
+// ============================================================
+// 【教学导读】静态数据单例（从 Godot 项目移植的种子数据）。
+// 演示用 readonly property var 的数组/对象字面量充当数据模型：
+// 各页面用 ShellData.deviceCards 等驱动 Repeater/列表来渲染。
+// 将来接入真实数据源（API/数据库）时只需替换这一个文件。
+// 本文件演示的 QML 概念：
+//   1. 单例作为"数据层"——界面与数据解耦
+//   2. JS 数组/对象字面量作为 QML 的模型数据
+//   3. 在单例里放查询函数，封装数据访问细节
+// 配套阅读：qml/HomePage.qml（消费本文件数据的页面）
+// ============================================================
 import QtQuick
 
 // Static seed data ported 1:1 from the Godot shell (shell_data.gd, home_page.gd
@@ -10,6 +21,7 @@ QtObject {
     id: shellData
 
     // -- nav (shell_data.gd nav_items) --
+    // 下面各数组是数据本体，页面按 id/字段取用，此处不逐条注释
     readonly property var navItems: [
         { "id": "home",          "label": "首页",     "title": "训练总览",         "subtitle": "快速开始、今日数据、设备状态和社交小组件", "color": "#00F0FF", "tone": "cyan"   },
         { "id": "learning",      "label": "课程",     "title": "拳击基础学习中心", "subtitle": "课程旧版功能入口迁移。",                 "color": "#00FF78", "tone": "green"  },
@@ -53,7 +65,9 @@ QtObject {
         { "id": "volume_settings",   "title": "音量设置",     "subtitle": "调节总音量与音频输出。",             "tag": "PANEL",      "color": "#00FF78", "tone": "green"  },
         { "id": "sound_test",        "title": "声音测试",     "subtitle": "播放测试音确认输出链路。",           "tag": "ACTION",     "color": "#00FF78", "tone": "green"  },
         { "id": "display_settings",  "title": "显示设置",     "subtitle": "屏幕亮度和显示参数。",               "tag": "PANEL",      "color": "#00F0FF", "tone": "cyan"   },
-        { "id": "dev_tools",         "title": "开发工具",     "subtitle": "调试与硬件联调入口。",               "tag": "/dev-tools", "color": "#FF003C", "tone": "red"    }
+        { "id": "dev_tools",         "title": "开发工具",     "subtitle": "调试与硬件联调入口。",               "tag": "/dev-tools", "color": "#FF003C", "tone": "red"    },
+        { "id": "app_version", "title": "应用版本", "subtitle": "查看 Qt HMI 当前版本号。", "tag": "INFO", "color": "#00F0FF", "tone": "cyan" },
+        { "id": "training_stats", "title": "训练统计", "subtitle": "今日与累计的出拳次数、训练次数（SQLite 持久化）。", "tag": "STATS", "color": "#00FF78", "tone": "green" }
     ]
 
     readonly property var entertainmentCards: [
@@ -154,6 +168,8 @@ QtObject {
         "visual_config": "visual_config"
     })
 
+    // 查询函数：把"卡片 id -> qrc 图片路径"的映射封装在单例里，
+    // 页面无需关心资源路径规则
     function coverFor(cardId) {
         const file = _coverFiles[cardId];
         if (file === undefined)

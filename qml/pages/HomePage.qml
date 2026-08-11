@@ -1,4 +1,15 @@
 pragma ComponentBehavior: Bound
+// ============================================================
+// 【教学导读】首页（导航 id "home"），是页面级 QML 的典型组织范本：
+//   - 按视觉区块划分子元素（训练总览 / 训练日程 / 发现课程 三大面板）
+//   - 数据全部来自单例：ShellData（静态数据）、AppState（导航/弹层）、
+//     SessionModel（硬件会话），页面本身不持有业务状态
+//   - 复用组件：HmiIcon、ClickFlash，以及本文件的内联组件 StatPill/ChipCyan
+//   - 用 Repeater + model/delegate 做数据驱动渲染，用 Flickable 做横向滑动
+// 坐标说明：本页 1:1 移植自 Godot 场景，x/y 均为 1920x1080 设计稿坐标，
+// 由 Main.qml 的缩放容器统一适配实际屏幕。
+// 配套阅读：qml/Main.qml（页面如何被 Loader 加载）、qml/ShellData.qml
+// ============================================================
 import QtQuick
 import QxznHmi
 
@@ -13,6 +24,7 @@ import QxznHmi
 Item {
     id: page
 
+    // 数据来自 ShellData 单例：绑定之后，数据一变页面自动刷新
     readonly property var summary: ShellData.homeSummary
 
     // Recommendation rail: Godot HOME_RECOMMEND_IDS order
@@ -29,6 +41,8 @@ Item {
     ]
 
     // tscn stat pill style (StatPill/StatWide): translucent white fill + border.
+    // 内联组件（Qt 6 语法）：在文件内声明一个只供本文件使用的小组件 StatPill，
+    // 下面写 StatPill { ... } 就能复用这套样式
     component StatPill: Rectangle {
         property bool wide: false
         radius: 15
@@ -90,6 +104,8 @@ Item {
         Rectangle {
             x: 27; y: 156; width: 534; height: 114
             radius: 20; color: Qt.rgba(0, 0, 0, 0.24)
+            // Repeater：数据驱动渲染——model 里有几项，就把 delegate 实例化几份；
+            // delegate 里用 required property 声明从模型接收的数据
             Repeater {
                 model: [
                     { "v": page.summary.power,     "c": page.summary.powerLabel },
@@ -199,6 +215,7 @@ Item {
         // (home_page_view.gd _update_schedule).
         Row {
             x: 60; y: 75; height: 57; spacing: 24
+            // model 也可以是纯数字：表示重复 7 次，delegate 里用 index 区分每一项
             Repeater {
                 model: 7
                 delegate: Text {
@@ -370,6 +387,9 @@ Item {
                     color: Qt.rgba(0.02, 0.06, 0.12, 1)
                 }
                 ClickFlash { id: quickFlash; radius: 42 }
+                // 交互信号流范本：TapHandler 捕获点击 -> ClickFlash 播放点击动效
+                // -> AppState.showCallout(...) 写入全局状态 -> CalloutHost 弹气泡。
+                // 页面不直接操作气泡组件，只改 AppState 单例（见导读第 2 条）。
                 TapHandler {
                     onTapped: {
                         quickFlash.flash();
@@ -388,6 +408,8 @@ Item {
 
         // RecommendationClip (30,630,1101,180): horizontal rail of 438x177
         // cards with 24px gap (home_page_view.gd RECOMMEND_CARD_SIZE/GAP).
+        // Flickable：QML 的可滑动容器。width 是可视窗口宽度，contentWidth
+        // 是内容总宽度；内容比窗口宽时即可横向拖动/甩动。
         Flickable {
             id: recFlick
             x: 30; y: 630; width: 1101; height: 180
@@ -400,6 +422,7 @@ Item {
             Row {
                 id: recRow
                 spacing: 24
+                // 推荐卡片列表：model 来自本页数据，封面图经 ShellData.coverFor 查得
                 Repeater {
                     model: page.recommendations
                     delegate: Item {
@@ -414,13 +437,15 @@ Item {
                             clip: true
                             smooth: true
                         }
-                        // Shade: full-cover black 0.34.
-                        Rectangle { anchors.fill: parent; color: Qt.rgba(0, 0, 0, 0.34) }
-                        // LowerShade: bottom 102px black 0.42.
+                        // 底部渐变压暗：从全透明过渡到黑 0.55，避免生硬分界线
                         Rectangle {
                             anchors.left: parent.left; anchors.right: parent.right
                             anchors.bottom: parent.bottom
-                            height: 102; color: Qt.rgba(0, 0, 0, 0.42)
+                            height: 102
+                            gradient: Gradient {
+                                GradientStop { position: 0.0; color: Qt.rgba(0, 0, 0, 0) }    // 顶部全透明
+                                GradientStop { position: 1.0; color: Qt.rgba(0, 0, 0, 0.55) } // 底部较暗
+                            }
                         }
                         // CardFrame: border white 0.1, radius 24.
                         Rectangle {
@@ -463,6 +488,7 @@ Item {
         Rectangle { x: 39; y: 828; width: 1083; height: 6; color: Qt.rgba(1, 1, 1, 0.16) }
         // RecommendScrollThumb: 2px at track y+1, white 0.34; width/position
         // follow home_page_view.gd _update_scroll_thumb.
+        // 滚动条滑块：宽度和位置都是属性绑定表达式，跟随 recFlick 的滚动自动更新
         Rectangle {
             readonly property real maxScroll: Math.max(0, recFlick.contentWidth - recFlick.width)
             readonly property real thumbWidth: recFlick.contentWidth > 0

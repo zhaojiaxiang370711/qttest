@@ -1,4 +1,14 @@
 pragma Singleton
+// ============================================================
+// 【教学导读】全局导航/弹层状态中心（QML 单例）。
+// 本文件演示一种值得学习的架构约定："单例充当全局状态管理器"——
+// 页面之间绝不直接互相引用，只读写 AppState，类似一个极简版全局 store。
+// 本文件演示的 QML 概念：
+//   1. 可读写 property（带初始值，变化时自动通知所有绑定处）
+//   2. property var — 无类型属性，可存任意 JS 值
+//   3. 用 function 集中封装状态修改与校验
+// 配套阅读：qml/Main.qml（Loader 根据这里的状态切换页面）
+// ============================================================
 import QtQuick
 import QxznHmi
 
@@ -8,6 +18,7 @@ QtObject {
     id: appState
 
     // Top-level nav id: home / learning / result / entertainment / device / combat.
+    // 可读写属性，带初始值；属性变化会自动通知所有绑定到它的地方
     property string selectedNav: "home"
     // Sub page id stacked above the current nav page: "" / fitness / ai_coach /
     // boxing_knowledge / course_lesson / focus_mitt.
@@ -23,6 +34,7 @@ QtObject {
     // model). The SubgamePage reads it; null until a card is opened.
     // Selected sub-game card (the whole card object from ShellData / a page
     // model). The SubgamePage reads it; null until a card is opened.
+    // var 是无类型属性，可以存任意 JS 值（这里是整张卡片对象或 null）
     property var subgameCard: null
 
     // Callout payload shown by CalloutHost; empty message hides the callout.
@@ -33,6 +45,8 @@ QtObject {
     readonly property var navIds: ["home", "learning", "result", "entertainment", "device", "combat"]
     readonly property var subPageIds: ["fitness", "ai_coach", "boxing_knowledge", "course_lesson", "focus_mitt", "subgame"]
 
+    // 通过函数集中修改状态并做合法性校验，而不是让页面随便直接改——
+    // 这是值得初学者学习的封装习惯
     function selectNav(id) {
         if (navIds.indexOf(id) < 0)
             return;
@@ -77,6 +91,8 @@ QtObject {
     }
 
     // ESC semantics: close overlay -> leave sub page -> back to home -> false (may quit).
+    // 导航栈语义：ESC 逐层返回（关弹层 → 退出子页 → 回首页），
+    // 全部退完返回 false，由调用方决定是否退出程序
     function back() {
         if (overlayPanel !== "") {
             overlayPanel = "";
@@ -93,10 +109,14 @@ QtObject {
         return false;
     }
 
+    // 每次 showCallout 自增：即使文案与上次相同，CalloutHost 也能收到变化通知
+    property int calloutSeq: 0
+
     function showCallout(type, title, msg) {
         calloutType = type;
         calloutTitle = title;
         calloutMessage = msg;
+        calloutSeq += 1        // 必然变化，触发 onCalloutSeqChanged
     }
 
     // Applies --nav / --overlay / --course command line seeds (called once from

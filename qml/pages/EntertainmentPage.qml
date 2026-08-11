@@ -1,6 +1,8 @@
 pragma ComponentBehavior: Bound
 import QtQuick
 import QxznHmi
+import QtQuick.Effects
+
 
 // 娱乐模式页（14 张游戏卡网格）。
 // Godot 源：scripts/pages/card_page.gd（selected_nav == "entertainment" 分支）
@@ -54,55 +56,73 @@ Item {
             fillColor: Qt.rgba(0, 0, 0, 0.46)
         }
 
-        // 封面区 image_rect = rect.grow(-2)@1280。Godot 贴图为直角矩形（不做圆角裁剪）。
         Item {
-            id: imageArea
+            id:imageArea
             x: Theme.px(2)
             y: Theme.px(2)
             width: card.width - Theme.px(2) * 2
             height: card.height - Theme.px(2) * 2
 
-            Image {
+            Item {
+                id: coverContent
                 anchors.fill: parent
-                visible: card.cover !== ""
-                source: card.cover
-                fillMode: Image.PreserveAspectCrop   // Godot _draw_cover_texture 居中裁剪
-                asynchronous: true
-                smooth: true
+                visible: false
+
+                Image {
+                    anchors.fill: parent
+                    visible: card.cover !== ""
+                    source: card.cover
+                    fillMode: Image.PreserveAspectCrop   // Godot _draw_cover_texture 居中裁剪
+                    asynchronous: true
+                    smooth: true
+                }
+                // 无封面：渐变占位 + 图标（Godot 走 icon 卡分支，移植按约定统一封面卡样式）
+                Rectangle {
+                    anchors.fill: parent
+                    visible: card.cover === ""
+                    gradient: Gradient {
+                        orientation: Gradient.Vertical
+                        GradientStop { position: 0.0; color: page.alphaColor(card.cardColorHex, 0.42) }
+                        GradientStop { position: 1.0; color: Qt.rgba(0, 0, 0, 0.55) }
+                    }
+                    HmiIcon {
+                        anchors.centerIn: parent
+                        name: card.fallbackIcon
+                        tone: card.itemData.tone !== undefined ? card.itemData.tone : "white"
+                        size: Theme.px(64)
+                    }
+                }
+                // 压暗层：全图 0.18 + 下部 58% 0.40 + 左侧 60% 0.22（Godot 源 alpha）
+                Rectangle { anchors.fill: parent; color: Qt.rgba(0, 0, 0, 0.10) }
+                Rectangle {
+                    x: 0
+                    y: Math.round(imageArea.height * 0.42)
+                    width: imageArea.width
+                    height: imageArea.height - y
+                    gradient: Gradient {
+                        GradientStop { position: 0.0; color: Qt.rgba(0, 0, 0, 0) }
+                        GradientStop { position: 1.0; color: Qt.rgba(0, 0, 0, 0.55) }
+                    }
+                }
             }
-            // 无封面：渐变占位 + 图标（Godot 走 icon 卡分支，移植按约定统一封面卡样式）
+            // 蒙版形状：一个看不见的圆角矩形
             Rectangle {
+                id: roundMask
                 anchors.fill: parent
-                visible: card.cover === ""
-                gradient: Gradient {
-                    orientation: Gradient.Vertical
-                    GradientStop { position: 0.0; color: page.alphaColor(card.cardColorHex, 0.42) }
-                    GradientStop { position: 1.0; color: Qt.rgba(0, 0, 0, 0.55) }
-                }
-                HmiIcon {
-                    anchors.centerIn: parent
-                    name: card.fallbackIcon
-                    tone: card.itemData.tone !== undefined ? card.itemData.tone : "white"
-                    size: Theme.px(64)
-                }
+                radius: Theme.px(20)    // 卡体 radius 22 减去 2px 内缩，角刚好贴合
+                visible: false
+                layer.enabled: true     // maskSource 要求源先渲染成纹理，必须加这行
             }
-            // 压暗层：全图 0.18 + 下部 58% 0.40 + 左侧 60% 0.22（Godot 源 alpha）
-            Rectangle { anchors.fill: parent; color: Qt.rgba(0, 0, 0, 0.18) }
-            Rectangle {
-                x: 0
-                y: Math.round(imageArea.height * 0.42)
-                width: imageArea.width
-                height: imageArea.height - y
-                color: Qt.rgba(0, 0, 0, 0.40)
+
+            MultiEffect {
+                anchors.fill: parent
+                source: coverContent    // 把封面内容作为输入
+                maskEnabled: true       // 启用蒙版
+                maskSource: roundMask   // 用圆角矩形做蒙版
             }
-            Rectangle {
-                x: 0
-                y: 0
-                width: Math.round(imageArea.width * 0.60)
-                height: imageArea.height
-                color: Qt.rgba(0, 0, 0, 0.22)
-            }
+
         }
+
 
         // 顶部高光线：(24,2) -> (w-24,2)@1280，卡色 alpha 0.24
         Rectangle {

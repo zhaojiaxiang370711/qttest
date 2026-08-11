@@ -1,3 +1,9 @@
+// ============================================================
+// 【教学导读】命令行/环境变量配置类
+// 演示"多个属性共用一个 NOTIFY 信号 configChanged"的写法：
+// 配置一次性解析完，发一次通知即可，不必每个属性各配一个信号
+// 配套阅读：src/config.cpp（解析逻辑）、src/qml_singletons.h（暴露给 QML）
+// ============================================================
 #pragma once
 #include <QObject>
 #include <QString>
@@ -5,6 +11,7 @@
 
 class Config : public QObject {
     Q_OBJECT
+    // 注意下面所有属性的 NOTIFY 都是同一个 configChanged：任一配置变化只发一次统一通知
     Q_PROPERTY(QString wsUrl READ wsUrl NOTIFY configChanged)
     Q_PROPERTY(QString apiBase READ apiBase NOTIFY configChanged)
     Q_PROPERTY(QString gameId READ gameId NOTIFY configChanged)

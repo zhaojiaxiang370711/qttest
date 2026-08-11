@@ -66,8 +66,7 @@ Item {
 
     Connections {
         target: AppState
-        function onCalloutMessageChanged() {
-            if (AppState.calloutMessage !== "")
+        function onCalloutSeqChanged() {
                 calloutAnim.restart();
         }
     }
