@@ -3,6 +3,8 @@
 *.log
 .DS_Store
 /.superpowers/
+**/__pycache__/
+**/*.pyc
 # Local external media root for course playback testing (never qrc/git).
 /media/
 
