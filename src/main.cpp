@@ -16,8 +16,10 @@
 #include <QQuickWindow>
 #include <QTimer>
 #include "config.h"
+#include "ai_assistant_client.h"
 #include "course_playback_controller.h"
 #include "dds_bridge.h"
+#include "game_launcher_client.h"
 #include "session_model.h"
 #include "stats_store.h"
 
@@ -44,12 +46,19 @@ int main(int argc, char *argv[]) {
     // 从 C++ 取回 QML 单例对象（这些单例由 src/qml_singletons.h 注册），
     // 让 C++ 和 QML 操作同一个实例
     auto *config = engine.singletonInstance<Config *>(QStringLiteral("QxznHmi"), QStringLiteral("Config"));
+    auto *aiAssistant = engine.singletonInstance<AiAssistantClient *>(QStringLiteral("QxznHmi"), QStringLiteral("AiAssistantClient"));
     auto *ddsBridge = engine.singletonInstance<DdsBridge *>(QStringLiteral("QxznHmi"), QStringLiteral("DdsBridge"));
+    auto *gameLauncher = engine.singletonInstance<GameLauncherClient *>(QStringLiteral("QxznHmi"), QStringLiteral("GameLauncher"));
     auto *session = engine.singletonInstance<SessionModel *>(QStringLiteral("QxznHmi"), QStringLiteral("SessionModel"));
     auto *coursePlayer = engine.singletonInstance<CoursePlaybackController *>(QStringLiteral("QxznHmi"), QStringLiteral("CoursePlayer"));
     auto *stats = engine.singletonInstance<StatsStore *>(QStringLiteral("QxznHmi"), QStringLiteral("StatsStore"));
-    if (!config || !ddsBridge || !session || !coursePlayer || !stats)
+    if (!config || !aiAssistant || !ddsBridge || !gameLauncher || !session || !coursePlayer || !stats)
         return -1;
+
+    aiAssistant->configure(*config);
+    QObject::connect(&app, &QCoreApplication::aboutToQuit, aiAssistant, &AiAssistantClient::cancelAll);
+    gameLauncher->configure(*config);
+    QObject::connect(&app, &QCoreApplication::aboutToQuit, gameLauncher, &GameLauncherClient::cancel);
 
     // SQLite 统计接线：每次有效击打（键盘或 DDS 都会经过 SessionModel）记一笔；
     // 会话在启动时开一行、退出时补全时长与击打数

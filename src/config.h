@@ -14,6 +14,7 @@ class Config : public QObject {
     // 注意下面所有属性的 NOTIFY 都是同一个 configChanged：任一配置变化只发一次统一通知
     Q_PROPERTY(QString wsUrl READ wsUrl NOTIFY configChanged)
     Q_PROPERTY(QString apiBase READ apiBase NOTIFY configChanged)
+    Q_PROPERTY(QString cloudApiBase READ cloudApiBase NOTIFY configChanged)
     Q_PROPERTY(QString gameId READ gameId NOTIFY configChanged)
     Q_PROPERTY(QString difficulty READ difficulty NOTIFY configChanged)
     Q_PROPERTY(int maxFps READ maxFps NOTIFY configChanged)
@@ -36,6 +37,8 @@ public:
     Q_INVOKABLE void parse(const QStringList &args);
     QString wsUrl() const { return m_wsUrl; }
     QString apiBase() const { return m_apiBase; }
+    QString cloudApiBase() const { return m_cloudApiBase; }
+    QString deviceSyncToken() const { return m_deviceSyncToken; }
     QString gameId() const { return m_gameId; }
     QString difficulty() const { return m_difficulty; }
     int maxFps() const { return m_maxFps; }
@@ -60,6 +63,8 @@ private:
 
     QString m_wsUrl   = QStringLiteral("ws://localhost:8000/ws");
     QString m_apiBase = QStringLiteral("http://localhost:8000");
+    QString m_cloudApiBase = QStringLiteral("https://cloud.qxrobot.com");
+    QString m_deviceSyncToken;
     QString m_gameId  = QStringLiteral("qxzn_hmi");
     QString m_difficulty = QStringLiteral("simple");
     int m_maxFps = 60;

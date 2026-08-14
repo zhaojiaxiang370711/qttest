@@ -1,12 +1,13 @@
 pragma ComponentBehavior: Bound
 import QtQuick
+import QtQuick.Controls
 import QxznHmi
 
 // AI 智能教练子页。
 // Godot 源：scripts/pages/ai_coach_page.gd + scripts/ai_coach_model.gd。
-// 对话为 ai_coach_model.gd 的静态回放：点快捷回复 chip 追加下一段脚本问答，
-// 阶段 body_status -> injury_check -> goal -> intensity -> recommendations。
-// 头部 Rect2(56,134,1168,60)，消息区 (56,206,1168,386)，快捷回复条 (56,600,1168,74)，
+// 对话保留本地筛查状态机作为安全兜底，并通过 C++ HTTPS 客户端请求云端
+// AI 文案增强。服务不可用、未配置设备令牌或超时时继续显示本地建议。
+// 头部与消息区沿用 1280 基准；底部区域合并快捷回复和自由文本输入。
 // 推荐浮层 sheet 1000x440 居中 —— 均 1280 基准。
 // 页面局部坐标 = Godot 屏幕坐标 - (48,150)。
 Item {
@@ -16,14 +17,30 @@ Item {
     property string stage: "body_status"
     property var intake: ({})
     property var messages: [
-        { "role": "assistant", "text": "你好，我是小星教练。我们先做 30 秒训练前筛查，再给你推荐合适的拳击或健身入口。今天身体状态怎么样？" }
+        { "role": "assistant", "text": "你好，我是小星教练。我们先做 30 秒训练前筛查，再给你推荐合适的拳击或健身入口。今天身体状态怎么样？", "timestamp": Date.now() }
     ]
     property bool showRecommendations: false
     property var recommendationCards: []
+    property string textInput: ""
+    property bool isAssistantThinking: false
+    property string pendingRequestId: ""
+    property string pendingLocalReply: ""
+    property int requestGeneration: 0
+
+    readonly property bool intakeComplete: findMissingStage(intake) === "recommendations"
+    readonly property bool hasPainOrFatigue: isPainOrTired(intake)
+    readonly property int completionPercent: {
+        var completed = 0;
+        if (intake.bodyStatus !== undefined) completed += 1;
+        if (intake.injuryArea !== undefined) completed += 1;
+        if (intake.goal !== undefined) completed += 1;
+        if (intake.intensity !== undefined) completed += 1;
+        return completed * 25;
+    }
 
     // 推荐卡数据（ai_coach_model.gd build_recommendations 的 5 张候选卡）
     readonly property var allRecommendationCards: [
-        { "id": "basics",      "title": "基础拳击学习",   "description": "从拳架、步伐和基础出拳开始，适合热身、动作修正和低风险练习。",   "path": "/basic-actions",    "intensity": "低强度",   "duration": "8-12 分钟",  "suitableFor": "入门、恢复、动作质量", "note": "动作慢一点也没关系", "tone": "calm"    },
+        { "id": "basics",      "title": "基础拳击学习",   "description": "从拳架、步伐和基础出拳开始，适合热身、动作修正和低风险练习。",   "path": "/basic-actions-learning", "intensity": "低强度",   "duration": "8-12 分钟",  "suitableFor": "入门、恢复、动作质量", "note": "动作慢一点也没关系", "tone": "calm"    },
         { "id": "combat",      "title": "战斗力评估",     "description": "进入速度、反应或力量测试，用短时间数据了解今天的竞技状态。",     "path": "/combat",           "intensity": "中高强度", "duration": "10-15 分钟", "suitableFor": "状态正常、想挑战",   "note": "疼痛或疲劳时跳过",   "tone": "energy"  },
         { "id": "musicBoxing", "title": "音乐拳击",       "description": "跟随节奏完成拳击训练，强度更容易控制，也适合燃脂和反应练习。",   "path": "/music-boxing",     "intensity": "中等强度", "duration": "10-20 分钟", "suitableFor": "燃脂、节奏、反应",   "note": "选择舒适节奏",       "tone": "focus"   },
         { "id": "fitness",     "title": "健身游戏",       "description": "用轻竞技小游戏提升专注、协调和心肺参与感。",                     "path": "/fitness-games",    "intensity": "中等强度", "duration": "8-15 分钟",  "suitableFor": "燃脂、趣味训练",     "note": "注意动作幅度",       "tone": "energy"  },
@@ -100,38 +117,60 @@ Item {
                 + "、目标 " + goalLabel(src.goal) + "、" + intensityLabel(src.intensity);
     }
 
+    function summaryItems() {
+        return [
+            { "label": "身体状态", "value": intake.bodyStatus !== undefined ? bodyStatusLabel(intake.bodyStatus) : "待确认", "pending": intake.bodyStatus === undefined },
+            { "label": "伤病疼痛", "value": intake.injuryArea !== undefined ? injuryLabel(intake.injuryArea) : "待确认", "pending": intake.injuryArea === undefined },
+            { "label": "训练目标", "value": intake.goal !== undefined ? goalLabel(intake.goal) : "待确认", "pending": intake.goal === undefined },
+            { "label": "训练强度", "value": intake.intensity !== undefined ? intensityLabel(intake.intensity) : "待确认", "pending": intake.intensity === undefined }
+        ];
+    }
+
+    function safetyNote() {
+        var injury = intake.injuryArea !== undefined ? intake.injuryArea : "";
+        if (injury !== "" && injury !== "none")
+            return "建议先避开疼痛部位和高强度击打，训练中一旦疼痛加重就立刻停止。";
+        if (intake.bodyStatus === "tired")
+            return "今天适合把强度降一档，优先热身、动作质量和节奏感。";
+        return "训练前先完成热身，击打时保持呼吸稳定和动作控制。";
+    }
+
+    function formatMessageTime(timestamp) {
+        return Qt.formatDateTime(new Date(timestamp), "HH:mm");
+    }
+
     // ai_coach_model.gd quick_replies_for_stage
     function quickReplies() {
         if (stage === "body_status")
             return [
-                { "label": "状态正常", "payload": { "bodyStatus": "normal" } },
-                { "label": "有点疲劳", "payload": { "bodyStatus": "tired" } },
-                { "label": "肩肘腕疼", "payload": { "bodyStatus": "pain", "injuryArea": "shoulder_elbow_wrist" } },
-                { "label": "膝踝疼",   "payload": { "bodyStatus": "pain", "injuryArea": "knee_ankle" } },
-                { "label": "腰背不适", "payload": { "bodyStatus": "pain", "injuryArea": "back" } }
+                { "label": "状态正常", "userText": "状态正常", "payload": { "bodyStatus": "normal" } },
+                { "label": "有点疲劳", "userText": "今天有点疲劳", "payload": { "bodyStatus": "tired" } },
+                { "label": "肩肘腕疼", "userText": "肩肘腕有点疼", "payload": { "bodyStatus": "pain", "injuryArea": "shoulder_elbow_wrist" } },
+                { "label": "膝踝疼",   "userText": "膝盖或脚踝有点疼", "payload": { "bodyStatus": "pain", "injuryArea": "knee_ankle" } },
+                { "label": "腰背不适", "userText": "腰背不太舒服", "payload": { "bodyStatus": "pain", "injuryArea": "back" } }
             ];
         if (stage === "injury_check")
             return [
-                { "label": "无伤病", "payload": { "injuryArea": "none" } },
-                { "label": "肩肘腕", "payload": { "bodyStatus": "pain", "injuryArea": "shoulder_elbow_wrist" } },
-                { "label": "膝踝",   "payload": { "bodyStatus": "pain", "injuryArea": "knee_ankle" } },
-                { "label": "腰背",   "payload": { "bodyStatus": "pain", "injuryArea": "back" } }
+                { "label": "无伤病", "userText": "没有伤病疼痛", "payload": { "injuryArea": "none" } },
+                { "label": "肩肘腕", "userText": "肩肘腕不适", "payload": { "bodyStatus": "pain", "injuryArea": "shoulder_elbow_wrist" } },
+                { "label": "膝踝",   "userText": "膝盖或脚踝不适", "payload": { "bodyStatus": "pain", "injuryArea": "knee_ankle" } },
+                { "label": "腰背",   "userText": "腰背不适", "payload": { "bodyStatus": "pain", "injuryArea": "back" } }
             ];
         if (stage === "goal")
             return [
-                { "label": "热身恢复", "payload": { "goal": "warmup" } },
-                { "label": "燃脂",     "payload": { "goal": "fat_loss" } },
-                { "label": "反应",     "payload": { "goal": "reaction" } },
-                { "label": "力量",     "payload": { "goal": "power" } },
-                { "label": "基础拳击", "payload": { "goal": "boxing_basics" } }
+                { "label": "热身恢复", "userText": "我想热身恢复", "payload": { "goal": "warmup" } },
+                { "label": "燃脂",     "userText": "我想燃脂训练", "payload": { "goal": "fat_loss" } },
+                { "label": "反应",     "userText": "我想练反应速度", "payload": { "goal": "reaction" } },
+                { "label": "力量",     "userText": "我想练力量爆发", "payload": { "goal": "power" } },
+                { "label": "基础拳击", "userText": "我想练基础拳击", "payload": { "goal": "boxing_basics" } }
             ];
         if (stage === "intensity") {
             var replies = [
-                { "label": "轻量",     "payload": { "intensity": "light" } },
-                { "label": "中等强度", "payload": { "intensity": "medium" } }
+                { "label": "轻量",     "userText": "轻量强度", "payload": { "intensity": "light" } },
+                { "label": "中等强度", "userText": "中等强度", "payload": { "intensity": "medium" } }
             ];
             if (!isPainOrTired(intake))
-                replies.push({ "label": "高强度", "payload": { "intensity": "high" } });
+                replies.push({ "label": "高强度", "userText": "高强度挑战", "payload": { "intensity": "high" } });
             return replies;
         }
         return [
@@ -141,20 +180,163 @@ Item {
     }
 
     function resetChat(introText) {
+        requestGeneration += 1;
+        aiTimeoutTimer.stop();
+        AiAssistantClient.cancelAll();
         stage = "body_status";
         intake = ({});
-        messages = [{ "role": "assistant", "text": introText }];
+        messages = [{ "role": "assistant", "text": introText, "timestamp": Date.now() }];
         showRecommendations = false;
         recommendationCards = [];
+        textInput = "";
+        isAssistantThinking = false;
+        pendingRequestId = "";
+        pendingLocalReply = "";
+        Qt.callLater(scrollMessagesToBottom);
     }
 
     function appendMessage(role, text) {
-        messages = messages.concat([{ "role": role, "text": text }]);
+        messages = messages.concat([{ "role": role, "text": text, "timestamp": Date.now() }]);
         Qt.callLater(scrollMessagesToBottom);
     }
 
     function scrollMessagesToBottom() {
         msgView.contentY = Math.max(0, msgView.contentHeight - msgView.height);
+    }
+
+    function copyIntake(src) {
+        var result = ({});
+        for (var key in src)
+            result[key] = src[key];
+        return result;
+    }
+
+    function normalized(text) {
+        return String(text).toLowerCase().replace(/\s+/g, "");
+    }
+
+    function inferIntakePatch(text) {
+        var value = normalized(text);
+        var patch = ({});
+        if (/(正常|没事|還好|还好|可以|不错|很好|无不适)/.test(value)) patch.bodyStatus = "normal";
+        if (/(累|疲劳|疲憊|疲惫|困|睡眠|没精神|乏|状态差)/.test(value)) patch.bodyStatus = "tired";
+        if (/(肩|肘|腕|手腕|手臂|胳膊)/.test(value)) { patch.bodyStatus = "pain"; patch.injuryArea = "shoulder_elbow_wrist"; }
+        if (/(膝|踝|脚踝|腿|小腿|大腿)/.test(value)) { patch.bodyStatus = "pain"; patch.injuryArea = "knee_ankle"; }
+        if (/(腰|背|脊柱)/.test(value)) { patch.bodyStatus = "pain"; patch.injuryArea = "back"; }
+        if (/(没有伤|无伤|没伤|没有疼|不疼|无疼痛|没有不适)/.test(value)) patch.injuryArea = "none";
+        if (/(热身|恢复|放松|拉伸|活动开)/.test(value)) patch.goal = "warmup";
+        if (/(燃脂|减脂|出汗|有氧|卡路里|瘦)/.test(value)) patch.goal = "fat_loss";
+        if (/(反应|速度|敏捷|快一点|快速)/.test(value)) patch.goal = "reaction";
+        if (/(力量|爆发|重拳|发力|power)/.test(value)) patch.goal = "power";
+        if (/(基础|入门|动作|拳架|步伐|拳击基础)/.test(value)) patch.goal = "boxing_basics";
+        if (/(轻|低强度|保守|简单|慢一点|恢复)/.test(value)) patch.intensity = "light";
+        if (/(中等|适中|正常强度|普通)/.test(value)) patch.intensity = "medium";
+        if (/(高强度|挑战|全力|强一点|hard|猛)/.test(value)) patch.intensity = "high";
+        return patch;
+    }
+
+    function hasStopSignal(text) {
+        return /(胸痛|胸闷|头晕|眩晕|呼吸困难|急性疼|剧烈疼|拉伤|扭伤)/.test(normalized(text));
+    }
+
+    function isResetIntent(text) {
+        return /(重新评估|重来|重新开始|清空|reset)/.test(normalized(text));
+    }
+
+    function isRecommendationIntent(text) {
+        return /(推荐|开始训练|我想练|训练入口|给我安排|进入训练)/.test(normalized(text));
+    }
+
+    function mergePatch(base, inferred, forced) {
+        var result = copyIntake(base);
+        var key;
+        for (key in inferred) result[key] = inferred[key];
+        for (key in forced) result[key] = forced[key];
+        return result;
+    }
+
+    function localReplyFor(text, next) {
+        if (hasStopSignal(text)) {
+            if (next.bodyStatus === undefined) next.bodyStatus = "pain";
+            if (next.injuryArea === undefined) next.injuryArea = "other";
+            if (next.goal === undefined) next.goal = "warmup";
+            next.intensity = "light";
+            return { "stage": "recommendations", "show": true,
+                "text": "听起来今天不适合做强刺激训练。我建议先休息、补水，并查看恢复和基础动作内容；如果有胸闷、头晕或急性疼痛，请停止训练并寻求专业帮助。" };
+        }
+        if (isRecommendationIntent(text) && findMissingStage(next) === "recommendations")
+            return { "stage": "recommendations", "show": true,
+                "text": "收到。按你现在的状态：" + describeIntake(next) + "。我已经把适合的训练入口整理好了，优先从安全、可持续的选项开始。" };
+
+        var missing = findMissingStage(next);
+        if (missing === "body_status")
+            return { "stage": missing, "text": "我先确认一下身体状态：今天整体感觉正常、疲劳，还是已经有某个部位不舒服？" };
+        if (missing === "injury_check")
+            return { "stage": missing, "text": "收到，" + (next.bodyStatus === "tired" ? "今天我们会把强度控制得更稳一点" : "身体状态已记录") + "。现在确认一下：有没有肩、肘、腕、膝、踝、腰背这些部位的疼痛或旧伤？" };
+        if (missing === "goal")
+            return { "stage": missing, "text": "好的，伤病状态已记录。" + (isPainOrTired(next) ? "我会避开高强度击打建议。" : "接下来按目标匹配训练入口。") + " 今天主要想练哪一类？" };
+        if (missing === "intensity")
+            return { "stage": missing, "text": "目标是" + goalLabel(next.goal) + "。最后确认强度：今天想轻量活动、中等训练，还是挑战高强度？" };
+        return { "stage": "recommendations", "show": true,
+            "text": "筛查完成：" + describeIntake(next) + "。我给你准备了几个入口，点击卡片就能进入现有训练页面。" };
+    }
+
+    function finishAssistant(text, generation) {
+        if (generation !== requestGeneration || !isAssistantThinking)
+            return;
+        aiTimeoutTimer.stop();
+        pendingRequestId = "";
+        isAssistantThinking = false;
+        appendMessage("assistant", text && String(text).trim().length > 0 ? String(text).trim() : pendingLocalReply);
+        pendingLocalReply = "";
+        if (stage === "recommendations") {
+            recommendationCards = buildRecommendations(intake);
+            showRecommendations = true;
+        }
+    }
+
+    function requestAiReply(userText, localText, next) {
+        isAssistantThinking = true;
+        pendingLocalReply = localText;
+        requestGeneration += 1;
+        var generation = requestGeneration;
+        pendingRequestId = "qt-" + Date.now() + "-" + generation;
+        aiTimeoutTimer.restart();
+        AiAssistantClient.requestReply(pendingRequestId, userText, localText, next);
+    }
+
+    function processUserInput(text, forcedPatch) {
+        var cleanText = String(text).trim();
+        if (cleanText.length === 0 || isAssistantThinking)
+            return;
+        if (isResetIntent(cleanText)) {
+            resetChat("没问题，我们重新来一遍。今天身体状态怎么样？");
+            return;
+        }
+        appendMessage("user", cleanText);
+        var forced = forcedPatch !== undefined ? forcedPatch : ({});
+        var next = mergePatch(intake, inferIntakePatch(cleanText), forced);
+        var local = localReplyFor(cleanText, next);
+        intake = next;
+        stage = local.stage;
+        textInput = "";
+        requestAiReply(cleanText, local.text, next);
+    }
+
+    function sendFreeText() {
+        processUserInput(textInput, ({}));
+    }
+
+    function openRecommendations() {
+        var missingNow = findMissingStage(intake);
+        if (missingNow !== "recommendations") {
+            stage = missingNow;
+            appendMessage("assistant", missingPrompt(missingNow));
+            return;
+        }
+        stage = "recommendations";
+        recommendationCards = buildRecommendations(intake);
+        showRecommendations = true;
     }
 
     // ai_coach_model.gd process_reply
@@ -165,46 +347,12 @@ Item {
             return;
         }
         if (intent === "recommend") {
-            var missingNow = findMissingStage(intake);
-            if (missingNow === "recommendations") {
-                stage = "recommendations";
-                recommendationCards = buildRecommendations(intake);
-                showRecommendations = true;
-            } else {
-                stage = missingNow;
-                appendMessage("assistant", missingPrompt(missingNow));
-            }
+            openRecommendations();
             return;
         }
-        appendMessage("user", reply.label !== undefined ? reply.label : "");
-        var next = ({});
-        for (var k in intake)
-            next[k] = intake[k];
-        var payload = reply.payload !== undefined ? reply.payload : ({});
-        for (var p in payload)
-            next[p] = payload[p];
-        intake = next;
-        var missingStage = findMissingStage(next);
-        if (missingStage === "body_status") {
-            stage = "body_status";
-            appendMessage("assistant", "我先确认一下身体状态：今天整体感觉正常、疲劳，还是已经有某个部位不舒服？");
-        } else if (missingStage === "injury_check") {
-            var tiredNote = next.bodyStatus === "tired" ? "今天我们会把强度控制得更稳一点" : "身体状态已记录";
-            stage = "injury_check";
-            appendMessage("assistant", "收到，" + tiredNote + "。现在确认一下：有没有肩、肘、腕、膝、踝、腰背这些部位的疼痛或旧伤？");
-        } else if (missingStage === "goal") {
-            var caution = isPainOrTired(next) ? "我会避开高强度击打建议。" : "接下来按目标匹配训练入口。";
-            stage = "goal";
-            appendMessage("assistant", "好的，伤病状态已记录。" + caution + " 今天主要想练哪一类？");
-        } else if (missingStage === "intensity") {
-            stage = "intensity";
-            appendMessage("assistant", "目标是" + goalLabel(next.goal) + "。最后确认强度：今天想轻量活动、中等训练，还是挑战高强度？");
-        } else {
-            stage = "recommendations";
-            appendMessage("assistant", "筛查完成：" + describeIntake(next) + "。我给你准备了几个入口，点击卡片就能进入现有训练页面。");
-            recommendationCards = buildRecommendations(next);
-            showRecommendations = true;
-        }
+        processUserInput(reply.userText !== undefined ? reply.userText
+                                                     : (reply.label !== undefined ? reply.label : ""),
+                         reply.payload !== undefined ? reply.payload : ({}));
     }
 
     // ai_coach_model.gd build_recommendations
@@ -215,10 +363,21 @@ Item {
         return cards[0];
     }
 
+    function contextualCard(card, src) {
+        var result = ({});
+        for (var key in card)
+            result[key] = card[key];
+        if (result.id === "musicBoxing" && isPainOrTired(src))
+            result.intensity = "低到中强度";
+        return result;
+    }
+
     function buildRecommendations(src) {
         var cards = allRecommendationCards;
         if (isPainOrTired(src))
-            return [cardById(cards, "knowledge"), cardById(cards, "basics"), cardById(cards, "musicBoxing")];
+            return [contextualCard(cardById(cards, "knowledge"), src),
+                    contextualCard(cardById(cards, "basics"), src),
+                    contextualCard(cardById(cards, "musicBoxing"), src)];
         var byGoal = ({
             "warmup":        ["basics", "musicBoxing", "knowledge"],
             "fat_loss":      ["musicBoxing", "fitness", "basics"],
@@ -231,16 +390,22 @@ Item {
         var selected = [];
         for (var i = 0; i < ids.length; i++) {
             var c = cardById(cards, ids[i]);
-            if (selected.indexOf(c) < 0)
-                selected.push(c);
+            var alreadySelected = false;
+            for (var selectedIndex = 0; selectedIndex < selected.length; ++selectedIndex)
+                if (selected[selectedIndex].id === c.id) alreadySelected = true;
+            if (!alreadySelected)
+                selected.push(contextualCard(c, src));
         }
         if (src.intensity === "light") {
             var filtered = [];
             for (var j = 0; j < selected.length; j++)
                 if (selected[j].id !== "combat")
                     filtered.push(selected[j]);
-            var knowledge = cardById(cards, "knowledge");
-            if (filtered.indexOf(knowledge) < 0)
+            var knowledge = contextualCard(cardById(cards, "knowledge"), src);
+            var hasKnowledge = false;
+            for (var k = 0; k < filtered.length; ++k)
+                if (filtered[k].id === "knowledge") hasKnowledge = true;
+            if (!hasKnowledge)
                 filtered.push(knowledge);
             return filtered.slice(0, 3);
         }
@@ -255,15 +420,50 @@ Item {
             AppState.selectNav("combat");
             return;
         }
+        if (path === "/basic-actions-learning") {
+            AppState.openCourse("stance");
+            return;
+        }
         if (path === "/fitness-games") {
             AppState.openSubPage("fitness");
             return;
+        }
+        if (path === "/music-boxing") {
+            for (var i = 0; i < ShellData.entertainmentCards.length; ++i) {
+                if (ShellData.entertainmentCards[i].id === "music_boxing") {
+                    AppState.selectNav("entertainment");
+                    AppState.openSubGame(ShellData.entertainmentCards[i]);
+                    return;
+                }
+            }
         }
         if (path === "/boxing-knowledge") {
             AppState.openSubPage("boxing_knowledge");
             return;
         }
-        AppState.showCallout("info", "未移植", card.title + "将在后续阶段移植");
+        AppState.showCallout("info", "入口待移植", card.title + "暂未接入 Qt 运行时");
+    }
+
+    Timer {
+        id: aiTimeoutTimer
+        interval: 32000
+        repeat: false
+        onTriggered: {
+            AiAssistantClient.cancelAll();
+            page.finishAssistant(page.pendingLocalReply, page.requestGeneration);
+        }
+    }
+
+    Connections {
+        target: AiAssistantClient
+        function onReplyReady(requestId, text) {
+            if (requestId === page.pendingRequestId)
+                page.finishAssistant(text, page.requestGeneration);
+        }
+        function onRequestFailed(requestId, message) {
+            if (requestId === page.pendingRequestId)
+                page.finishAssistant(page.pendingLocalReply, page.requestGeneration);
+        }
     }
 
     // 推荐卡 tone -> 颜色（ai_coach_page.gd _draw_recommendation_card）
@@ -287,7 +487,8 @@ Item {
         id: bubble
         required property var msg
         readonly property bool isAssistant: msg.role === "assistant"
-        height: bubbleBody.height
+        readonly property int metaHeight: Theme.px(20)
+        height: bubbleBody.y + bubbleBody.height
 
         TextMetrics {
             id: metrics
@@ -300,7 +501,7 @@ Item {
         Rectangle {
             visible: bubble.isAssistant
             x: Theme.px(22) - Theme.px(18)
-            y: 0
+            y: bubble.metaHeight
             width: Theme.px(36)
             height: Theme.px(36)
             radius: Theme.px(18)
@@ -318,7 +519,7 @@ Item {
         Rectangle {
             id: bubbleBody
             x: bubble.isAssistant ? Theme.px(52) : bubble.width - width - Theme.px(52)
-            y: 0
+            y: bubble.metaHeight
             // Godot bubble_w = min(680, 文本宽 + 20*2 + 12)@1280
             width: Math.min(Theme.px(680), Math.ceil(metrics.advanceWidth) + Theme.px(20) * 2 + Theme.px(12))
             height: contentText.paintedHeight + Theme.px(12) * 2
@@ -345,7 +546,7 @@ Item {
         Rectangle {
             visible: !bubble.isAssistant
             x: bubbleBody.x + bubbleBody.width + Theme.px(12) + Theme.px(4)
-            y: 0
+            y: bubble.metaHeight
             width: Theme.px(36)
             height: Theme.px(36)
             radius: Theme.px(18)
@@ -356,6 +557,20 @@ Item {
                 color: Theme.muted
                 font.pixelSize: Theme.fontPx(12)
             }
+        }
+
+        Text {
+            x: bubbleBody.x
+            y: 0
+            width: bubbleBody.width
+            height: bubble.metaHeight
+            text: (bubble.isAssistant ? "小星教练" : "你") + "  ·  "
+                  + page.formatMessageTime(bubble.msg.timestamp !== undefined
+                                           ? bubble.msg.timestamp : Date.now())
+            color: Theme.muted
+            font.pixelSize: Theme.fontPx(10)
+            horizontalAlignment: bubble.isAssistant ? Text.AlignLeft : Text.AlignRight
+            verticalAlignment: Text.AlignVCenter
         }
     }
 
@@ -534,9 +749,30 @@ Item {
         Text {
             x: Theme.px(128)
             y: Theme.px(18) - Math.round(Theme.fontPx(22) * 0.78)
-            text: "AI 智能教练"
+            text: "训练前智能助手"
             color: Theme.text
             font.pixelSize: Theme.fontPx(22)
+        }
+
+        Rectangle {
+            id: resetButton
+            x: header.width - Theme.px(278)
+            y: Theme.px(14)
+            width: Theme.px(112)
+            height: Theme.px(32)
+            radius: Theme.px(14)
+            color: Qt.rgba(0.420, 0.482, 0.612, 0.14)
+            border.width: 1
+            border.color: Qt.rgba(0.420, 0.482, 0.612, 0.28)
+            Text {
+                anchors.centerIn: parent
+                text: "重新评估"
+                color: Theme.text
+                font.pixelSize: Theme.fontPx(12)
+            }
+            TapHandler {
+                onTapped: page.resetChat("好的，我们重新评估一次。今天身体状态怎么样？")
+            }
         }
 
         // 阶段 pill：相对头部 (w-150, 16, 130, 28)@1280，radius 14，primary alpha 0.14
@@ -547,11 +783,21 @@ Item {
             height: Theme.px(28)
             radius: Theme.px(14)
             color: Qt.rgba(0, 0.941, 1, 0.14)
+            Rectangle {
+                x: Theme.px(12)
+                anchors.verticalCenter: parent.verticalCenter
+                width: Theme.px(7)
+                height: width
+                radius: width / 2
+                color: Theme.success
+            }
             Text {
-                anchors.centerIn: parent
+                anchors.fill: parent
                 text: page.stageLabel(page.stage)
                 color: Theme.primary
                 font.pixelSize: Theme.fontPx(12)
+                horizontalAlignment: Text.AlignHCenter
+                verticalAlignment: Text.AlignVCenter
             }
         }
     }
@@ -561,8 +807,8 @@ Item {
         id: msgView
         x: Theme.px(56) - 48
         y: Theme.px(206) - 150
-        width: Theme.px(1168)
-        height: Theme.px(386)
+        width: Theme.px(836)
+        height: Theme.px(314)
         contentWidth: width
         contentHeight: msgColumn.height
         clip: true
@@ -581,16 +827,25 @@ Item {
                     width: msgColumn.width
                 }
             }
+            Text {
+                visible: page.isAssistantThinking
+                height: visible ? Theme.px(34) : 0
+                text: "小星教练正在思考…"
+                color: Theme.primary
+                font.pixelSize: Theme.fontPx(13)
+                leftPadding: Theme.px(52)
+                verticalAlignment: Text.AlignVCenter
+            }
         }
     }
 
-    // ---- 快捷回复条：(56,600,1168,74)@1280 -> 局部 (36,750,1752,111)，glass radius 18 ----
+    // Combined quick replies + free-text composer, ported from the Web page.
     HmiCard {
         id: replyBar
         x: Theme.px(56) - 48
-        y: Theme.px(600) - 150
-        width: Theme.px(1168)
-        height: Theme.px(74)
+        y: Theme.px(536) - 150
+        width: Theme.px(836)
+        height: Theme.px(126)
         radius: Theme.px(18)
         fillColor: Qt.rgba(0.067, 0.067, 0.067, 0.58)
 
@@ -598,11 +853,11 @@ Item {
             id: chipRow
             // Godot：总宽超不出时居中，否则留 pad 20@1280
             x: Math.max(Theme.px(20), (replyBar.width - width) / 2)
-            y: (replyBar.height - Theme.px(42)) / 2
+            y: Theme.px(10)
             spacing: Theme.px(14)
 
             Repeater {
-                model: page.quickReplies()
+                model: page.isAssistantThinking ? [] : page.quickReplies()
                 delegate: Rectangle {
                     id: chip
                     required property var modelData
@@ -639,6 +894,202 @@ Item {
                         }
                     }
                 }
+            }
+        }
+
+        Rectangle {
+            id: composer
+            x: Theme.px(20)
+            y: Theme.px(66)
+            width: replyBar.width - Theme.px(40)
+            height: Theme.px(46)
+            radius: Theme.px(18)
+            color: Qt.rgba(0, 0, 0, 0.26)
+            border.width: 1
+            border.color: input.activeFocus ? Theme.primary : Theme.cardBorder
+
+            TextInput {
+                id: input
+                x: Theme.px(18)
+                y: 0
+                width: composer.width - Theme.px(84)
+                height: composer.height
+                text: page.textInput
+                onTextChanged: page.textInput = text
+                color: Theme.text
+                selectionColor: Theme.primary
+                selectedTextColor: Theme.windowBackground
+                font.pixelSize: Theme.fontPx(15)
+                verticalAlignment: TextInput.AlignVCenter
+                clip: true
+                enabled: !page.isAssistantThinking
+                onAccepted: page.sendFreeText()
+
+                Text {
+                    anchors.fill: parent
+                    visible: input.text.length === 0
+                    text: "告诉我身体状态、训练目标，或输入“推荐训练”"
+                    color: Theme.mutedSoft
+                    font: input.font
+                    verticalAlignment: Text.AlignVCenter
+                }
+            }
+
+            Rectangle {
+                id: sendButton
+                x: composer.width - Theme.px(58)
+                y: Theme.px(5)
+                width: Theme.px(48)
+                height: Theme.px(36)
+                radius: Theme.px(16)
+                color: input.text.trim().length > 0 && !page.isAssistantThinking
+                       ? Qt.rgba(0, 0.941, 1, 0.20) : Qt.rgba(0.420, 0.482, 0.612, 0.12)
+                Text {
+                    anchors.centerIn: parent
+                    text: "发送"
+                    color: input.text.trim().length > 0 && !page.isAssistantThinking ? Theme.primary : Theme.muted
+                    font.pixelSize: Theme.fontPx(12)
+                }
+                TapHandler {
+                    enabled: input.text.trim().length > 0 && !page.isAssistantThinking
+                    onTapped: page.sendFreeText()
+                }
+            }
+        }
+    }
+
+    // Web parity: live screening summary, completion progress, safety guidance
+    // and an always-visible recommendation action.
+    HmiCard {
+        id: intakePanel
+        x: Theme.px(908) - 48
+        y: Theme.px(206) - 150
+        width: Theme.px(316)
+        height: Theme.px(464)
+        radius: Theme.px(20)
+        fillColor: Qt.rgba(0.067, 0.067, 0.067, 0.68)
+
+        Text {
+            x: Theme.px(20)
+            y: Theme.px(16)
+            text: "筛查摘要"
+            color: Theme.text
+            font.pixelSize: Theme.fontPx(15)
+        }
+        Text {
+            x: intakePanel.width - Theme.px(74)
+            y: Theme.px(13)
+            width: Theme.px(54)
+            text: page.completionPercent + "%"
+            color: Theme.primary
+            font.pixelSize: Theme.fontPx(18)
+            horizontalAlignment: Text.AlignRight
+        }
+
+        Rectangle {
+            x: Theme.px(20)
+            y: Theme.px(50)
+            width: intakePanel.width - Theme.px(40)
+            height: Theme.px(8)
+            radius: height / 2
+            color: Qt.rgba(0.420, 0.482, 0.612, 0.20)
+            Rectangle {
+                width: parent.width * page.completionPercent / 100
+                height: parent.height
+                radius: height / 2
+                color: page.hasPainOrFatigue ? Theme.warn : Theme.success
+                Behavior on width { NumberAnimation { duration: 220 } }
+            }
+        }
+
+        Column {
+            x: Theme.px(20)
+            y: Theme.px(70)
+            width: intakePanel.width - Theme.px(40)
+            spacing: Theme.px(8)
+
+            Repeater {
+                model: page.summaryItems()
+                delegate: Rectangle {
+                    id: summaryRow
+                    required property var modelData
+                    width: parent.width
+                    height: Theme.px(48)
+                    radius: Theme.px(12)
+                    color: Qt.rgba(1, 1, 1, 0.035)
+                    Text {
+                        x: Theme.px(12)
+                        y: Theme.px(7)
+                        text: summaryRow.modelData.label
+                        color: Theme.muted
+                        font.pixelSize: Theme.fontPx(10)
+                    }
+                    Text {
+                        x: Theme.px(12)
+                        y: Theme.px(23)
+                        width: summaryRow.width - Theme.px(24)
+                        text: summaryRow.modelData.value
+                        color: summaryRow.modelData.pending ? Theme.mutedSoft : Theme.text
+                        font.pixelSize: Theme.fontPx(13)
+                        elide: Text.ElideRight
+                    }
+                }
+            }
+        }
+
+        Rectangle {
+            x: Theme.px(20)
+            y: Theme.px(294)
+            width: intakePanel.width - Theme.px(40)
+            height: Theme.px(92)
+            radius: Theme.px(14)
+            color: page.hasPainOrFatigue
+                   ? Qt.rgba(1, 0.902, 0, 0.08) : Qt.rgba(0, 0.941, 1, 0.07)
+            border.width: 1
+            border.color: page.hasPainOrFatigue
+                          ? Qt.rgba(1, 0.902, 0, 0.35) : Qt.rgba(0, 0.941, 1, 0.25)
+            Text {
+                x: Theme.px(12)
+                y: Theme.px(10)
+                text: page.hasPainOrFatigue ? "保守训练提示" : "训练提示"
+                color: page.hasPainOrFatigue ? Theme.warn : Theme.primary
+                font.pixelSize: Theme.fontPx(12)
+            }
+            Text {
+                x: Theme.px(12)
+                y: Theme.px(31)
+                width: parent.width - Theme.px(24)
+                height: Theme.px(52)
+                text: page.safetyNote()
+                color: Theme.muted
+                font.pixelSize: Theme.fontPx(11)
+                wrapMode: Text.Wrap
+                maximumLineCount: 3
+                elide: Text.ElideRight
+            }
+        }
+
+        Rectangle {
+            id: recommendationButton
+            x: Theme.px(20)
+            y: Theme.px(404)
+            width: intakePanel.width - Theme.px(40)
+            height: Theme.px(42)
+            radius: Theme.px(16)
+            color: page.intakeComplete
+                   ? Qt.rgba(0, 1, 0.471, 0.18) : Qt.rgba(0.420, 0.482, 0.612, 0.12)
+            border.width: 1
+            border.color: page.intakeComplete
+                          ? Qt.rgba(0, 1, 0.471, 0.40) : Qt.rgba(0.420, 0.482, 0.612, 0.18)
+            Text {
+                anchors.centerIn: parent
+                text: "查看推荐入口"
+                color: page.intakeComplete ? Theme.success : Theme.muted
+                font.pixelSize: Theme.fontPx(14)
+            }
+            TapHandler {
+                enabled: page.intakeComplete
+                onTapped: page.openRecommendations()
             }
         }
     }

@@ -12,11 +12,13 @@
 #pragma once
 
 #include "config.h"
+#include "ai_assistant_client.h"
 #include "course_catalog.h"
 #include "course_playback_controller.h"
 #include "course_video_surface.h"
 #include "dds_bridge.h"
 #include "face_height_guide_client.h"
+#include "game_launcher_client.h"
 #include "session_model.h"
 #include "stats_store.h"
 
@@ -42,6 +44,28 @@ public:
         auto *config = new Config;
         config->parse(QCoreApplication::arguments().mid(1));
         return config;
+    }
+};
+
+struct AiAssistantClientQmlForeign {
+    Q_GADGET
+    QML_FOREIGN(AiAssistantClient)
+    QML_NAMED_ELEMENT(AiAssistantClient)
+    QML_SINGLETON
+public:
+    static AiAssistantClient *create(QQmlEngine *, QJSEngine *) {
+        return new AiAssistantClient;
+    }
+};
+
+struct GameLauncherQmlForeign {
+    Q_GADGET
+    QML_FOREIGN(GameLauncherClient)
+    QML_NAMED_ELEMENT(GameLauncher)
+    QML_SINGLETON
+public:
+    static GameLauncherClient *create(QQmlEngine *, QJSEngine *) {
+        return new GameLauncherClient;
     }
 };
 

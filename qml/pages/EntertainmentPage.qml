@@ -29,10 +29,21 @@ Item {
     }
 
     function cardActivated(item) {
-        if (item.id === "fitness_games")
+        if (item.id === "vr_beats_kit") {
+            if (GameLauncher.launchGame(item.id))
+                AppState.showCallout("info", "正在启动 VR 节奏拳击", "主界面将暂时退出，游戏结束后会自动恢复。");
+        } else if (item.id === "fitness_games")
             AppState.openSubPage("fitness");
         else
             AppState.openSubGame(item);   // opens the subgame placeholder (content ships as standalone Godot later)
+    }
+
+    Connections {
+        target: GameLauncher
+        function onLaunchFailed(gameId, message) {
+            if (gameId === "vr_beats_kit")
+                AppState.showCallout("error", "VR 节奏拳击启动失败", message);
+        }
     }
 
     // 游戏封面卡：_draw_game_image_card。除注明外矩形均为 1280 基准。
@@ -45,6 +56,8 @@ Item {
         readonly property string cardColorHex: itemData.color !== undefined ? String(itemData.color) : "#00F0FF"
         readonly property string cover: ShellData.coverFor(itemData.id !== undefined ? itemData.id : "")
         readonly property string fallbackIcon: itemData.id === "vr_beats_kit" ? "gamepad-2" : "music"
+        enabled: itemData.id !== "vr_beats_kit" || !GameLauncher.busy
+        opacity: enabled ? 1.0 : 0.62
         // Godot hover 时卡上移 3px（非缩放值，运行时原值）
         property real lift: hover.hovered ? -3 : 0
         Behavior on lift { NumberAnimation { duration: 80 } }

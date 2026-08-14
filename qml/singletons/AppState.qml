@@ -60,9 +60,17 @@ QtObject {
         subPage = id;
     }
 
-    // Open a sub-game placeholder page for the given card object (from the
-    // entertainment / fitness grids). The games themselves will ship later as
-    // standalone Godot apps; this only navigates into a placeholder view.
+    // The assistant is a learning workflow even when opened from the global
+    // status bar. Anchor it to Learning so Back always returns to a predictable
+    // page instead of whichever shell tab happened to be active.
+    function openAiAssistant() {
+        overlayPanel = "";
+        selectedNav = "learning";
+        subPage = "ai_coach";
+    }
+
+    // Open a placeholder for cards that do not yet have a native or external
+    // launcher. VRBeatsKit bypasses this path and uses GameLauncher instead.
     function openSubGame(card) {
         if (card === null || card === undefined || card.id === undefined)
             return false;
@@ -131,6 +139,9 @@ QtObject {
             selectedNav = nav;
             subPage = "";
         } else if (nav === "course_lesson" || nav === "focus_mitt") {
+            selectedNav = "learning";
+            subPage = nav;
+        } else if (nav === "ai_coach") {
             selectedNav = "learning";
             subPage = nav;
         } else if (subPageIds.indexOf(nav) >= 0) {

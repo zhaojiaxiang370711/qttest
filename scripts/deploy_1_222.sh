@@ -110,6 +110,13 @@ cat > "${STAGE_DIR}/run-qxzn-hmi.sh" <<'WRAPPER'
 DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 export QT_PLUGIN_PATH="${DIR}/plugins"
 export QML2_IMPORT_PATH="${DIR}/qml"
+# The model-provider key never reaches the device. Qt reads only this
+# revocable device credential; keep the file mode at 0600.
+device_token_file="${QXZN_DEVICE_SYNC_TOKEN_FILE:-${HOME}/.config/qxzn/device-sync-token}"
+if [[ -r "${device_token_file}" ]]; then
+    export QXZN_DEVICE_SYNC_TOKEN_FILE="${device_token_file}"
+fi
+export QXZN_CLOUD_API_BASE="${QXZN_CLOUD_API_BASE:-https://cloud.qxrobot.com}"
 # 课程媒体根目录（存在才导出，缺失时播放器显示受控遮罩而不崩溃）
 if [[ -d /home/x/code/pd02/media ]]; then
     export QXZN_MEDIA_DIR="${QXZN_MEDIA_DIR:-/home/x/code/pd02/media}"

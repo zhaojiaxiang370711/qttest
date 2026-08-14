@@ -5,7 +5,7 @@
 
 ## 0. 一句话现状
 
-Godot 项目 `15-6inch-game-runtime-qxzn` 的**外壳全部页面**已按 1920×1080 像素级移植到本仓（Qt 6.11.1 / CMake / 纯 QML + 少量 C++）；DDS 通信第一切片（`pd02/hit/event` 输入 + `pd02/led/command` 输出）已完成并本地 round-trip 验证；**课程播放器第一切片已完成**——三门纯视频课（专项练习 / 站姿 / 右直拳）经自定义 GStreamer 后端端到端播放并通过真实媒体测试。其余页面数据仍以静态种子为主；**游戏、AI 动作纠正、BodyCombat 电机编排、REST 设备接口仍未移植**。
+Godot 项目 `15-6inch-game-runtime-qxzn` 的**外壳全部页面**已按 1920×1080 像素级移植到本仓（Qt 6.11.1 / CMake / 纯 QML + 少量 C++）；DDS 通信第一切片（`pd02/hit/event` 输入 + `pd02/led/command` 输出）已完成并本地 round-trip 验证；**课程播放器第一切片已完成**——三门纯视频课（专项练习 / 站姿 / 右直拳）经自定义 GStreamer 后端端到端播放并通过真实媒体测试；**AI 教练页面和云端文案增强客户端已完成**。其余页面数据仍以静态种子为主；**游戏、AI 动作纠正、BodyCombat 电机编排、其余 REST 设备接口仍未移植**。
 
 ⚠️ **当前所有移植改动还在工作区未提交**（~48 项改动）。接手前请先 `git status` 确认，建议先提交或打包保留，避免被误清。
 
@@ -30,10 +30,11 @@ Godot 项目 `15-6inch-game-runtime-qxzn` 的**外壳全部页面**已按 1920×
 | `CombatPowerPage.qml` | `scripts/pages/combat_power_page.gd` | 分数卡+开始/结束+三模式卡 |
 | `DevicePage.qml` + 10 个 `Device*Panel.qml` | `scripts/pages/device_page.gd` | 13 卡 4 列网格+10 覆盖面板（volume/display/system/pressure/face 完整，余简化）+ 重启关机确认框 |
 | `EntertainmentPage.qml` | `scripts/pages/card_page.gd` + `scripts/shell_card_grid.gd` | 14 卡封面网格 |
-| `FitnessPage.qml` / `AiCoachPage.qml` / `BoxingKnowledgePage.qml` | `scripts/pages/fitness_page.gd` / `ai_coach_page.gd`(+`ai_coach_model.gd`) / `boxing_knowledge_page.gd`(+`shell_page_data.gd`) | 子页；AI 教练为脚本静态回放 |
+| `GameLauncher` | App `/api/v1/game/start` | `vr_beats_kit` 卡片触发 Qt → Godot → Qt 的既有后端交接链 |
+| `FitnessPage.qml` / `AiCoachPage.qml` / `BoxingKnowledgePage.qml` | `scripts/pages/fitness_page.gd` / Web `DeviceAiPage.vue` / `boxing_knowledge_page.gd`(+`shell_page_data.gd`) | 子页；AI 助手支持快捷筛查、自由文本、筛查摘要/安全提示、C++ HTTPS 云端增强、本地安全兜底和推荐入口路由 |
 | `CourseLessonPage.qml` | `modules/course/internal/course_lesson_page.gd`（仅纯视频形态） | GStreamer 视频播放器子页；返回/标题、进度+动作标记、播放/标记导航、音量/静音、加载/缺媒体/错误/结束遮罩 |
 
-地基：`Main.qml`（1920×1080 设计坐标，等比缩放适配实际屏幕——2026-07-22 修复黑边）、单例 `Theme/AppState/ShellData`、C++ 单例 `Config/SessionModel/DdsBridge`、课程后端 `CourseCatalog/CoursePlaybackController(QML CoursePlayer)/CourseVideoSurface`、组件 `HmiCard/HmiInset/HmiIcon/HmiButton/ClickFlash/CalloutHost/HmiBarChart/NeumorphShadow`、资产同步脚本 `scripts/sync_godot_assets.sh`（239 个资产）、CLI `--nav/--overlay/--screenshot/--course/--media-root`。
+地基：`Main.qml`（1920×1080 设计坐标，等比缩放适配实际屏幕——2026-07-22 修复黑边）、单例 `Theme/AppState/ShellData`、C++ 单例 `Config/AiAssistantClient/SessionModel/DdsBridge`、课程后端 `CourseCatalog/CoursePlaybackController(QML CoursePlayer)/CourseVideoSurface`、组件 `HmiCard/HmiInset/HmiIcon/HmiButton/ClickFlash/CalloutHost/HmiBarChart/NeumorphShadow`、资产同步脚本 `scripts/sync_godot_assets.sh`（239 个资产）、CLI `--nav/--overlay/--screenshot/--course/--media-root`。
 
 验证基线（接手后每次改动必须保持全绿）：
 
@@ -62,6 +63,7 @@ QT_QUICK_BACKEND=software ./build/qxzn_hmi -platform offscreen --windowed \
 - **AppState 单例**：`selectedNav`(home/learning/result/entertainment/device/combat)、`subPage`(fitness/ai_coach/boxing_knowledge/course_lesson)、`overlayPanel`、`courseId`(默认 `special_practice`)、`selectNav/openSubPage/openOverlay/closeOverlay/back/showCallout/applyInitial/openCourse`。新页面在 `Main.qml` 的 Loader 映射表登记（navPages/subPages）。
 - **课程后端 C++ 单例**：`CourseCatalog`（6 启动器 + 3 视频课 + 动作标记；`launchers/courses/defaultCourseId/defaultLauncherIndex/contains/course`）、`CoursePlaybackController`（QML 名 `CoursePlayer`；在 `main.cpp` 用 `Config` 配置媒体根+解码策略，`aboutToQuit` 调 `stop()`）、`CourseVideoSurface`（可实例化 `QQuickItem`，非单例，`controller` 属性接 `CoursePlayer`）。课程媒体**只走外部** `QXZN_MEDIA_DIR`/`--media-root`，CMake 在 `QXZN_ASSET_FILES` 见视频即 FATAL_ERROR；课程代码不引用 DDS/SessionModel/REST/摄像头/电机/LED。
 - **ShellData 单例**：全部静态种子（照抄 `shell_data.gd`）：`navItems/learningCards/resultCards/deviceCards/entertainmentCards/combatModes/homeSummary/deviceStatus/sparringSummary` + `coverFor(cardId)`。后续 REST/状态模型接入时保持字段名不变，逐步把静态值换成实时绑定。
+- **AiAssistantClient C++ 单例**：只调用 `https://cloud.qxrobot.com/api/v1/ai/training-assistant`（可由 `QXZN_CLOUD_API_BASE` / `--cloud-api-base` 覆盖），从 `QXZN_DEVICE_SYNC_TOKEN_FILE` / `--device-sync-token-file` 读取可撤销设备令牌；供应商 API key 只能放在 `cloud-server`。30 秒超时/服务错误必须回退到页面本地安全规则，不能阻断筛查。
 - **DdsBridge C++ 单例**：通过 `QLibrary` 动态加载 `dds-fastdds-core` C ABI；订阅 `pd02/hit/event` 并与键盘共用 `SessionModel.onSegment()`，显式发布 `pd02/led/command`。状态为 `disabled/loading/ready/receiving/error`；`ready` 不代表远端 match；hit 不自动触发 LED。DDS 不可用时 UI 和键盘回退必须继续工作。
 - **组件**：`HmiCard{default property alias content; radius; fillColor; showShadow}`、`HmiInset`、`HmiIcon{name; tone(white/muted/cyan/green/yellow/red/orange); size}`、`HmiButton{text; kind(primary/ghost/danger); clicked()}`、`ClickFlash{flash()}`、`CalloutHost`（已在 Main 挂载，只调 `AppState.showCallout`）、`HmiBarChart{values; barColor}`。
 - **资源**：全部走 qrc，`qrc:/resources/images/<dir>/<file>`、`qrc:/resources/icons/lucide/<name>_<tone>.svg`（29 图标 × 7 色，新图标在 `sync_godot_assets.sh` 里加源文件后重跑脚本，**不要手改** `resources/assets-manifest.cmake`）。

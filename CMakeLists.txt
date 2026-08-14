@@ -20,7 +20,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_AUTOMOC ON)
 
 # 声明本项目依赖的 Qt 模块；Quick/Qml 是 QML 应用的核心，Test 供单元测试使用
-find_package(Qt6 6.11 REQUIRED COMPONENTS Core Gui Quick QuickControls2 Qml Sql Test)
+find_package(Qt6 6.11 REQUIRED COMPONENTS Core Gui Network Quick QuickControls2 Qml Sql Test)
 find_package(PkgConfig REQUIRED)
 pkg_check_modules(GSTREAMER REQUIRED IMPORTED_TARGET
     gstreamer-1.0>=1.20
@@ -58,6 +58,10 @@ set(QXZN_HMI_GST_FRAME_HEIGHT 720 CACHE STRING "Course video delivered frame hei
 add_library(qxzn_core STATIC
     src/config.h
     src/config.cpp
+    src/ai_assistant_client.h
+    src/ai_assistant_client.cpp
+    src/game_launcher_client.h
+    src/game_launcher_client.cpp
     src/course_catalog.h
     src/course_catalog.cpp
     src/media_path_resolver.h
@@ -87,7 +91,7 @@ target_compile_definitions(qxzn_core PRIVATE
     QXZN_HMI_GST_FRAME_HEIGHT=${QXZN_HMI_GST_FRAME_HEIGHT}
 )
 # CMake 里 Qt 模块以 "Qt6::模块名" 的导入目标形式链接
-target_link_libraries(qxzn_core PUBLIC Qt6::Core Qt6::Gui Qt6::Quick Qt6::Sql PRIVATE PkgConfig::GSTREAMER)
+target_link_libraries(qxzn_core PUBLIC Qt6::Core Qt6::Gui Qt6::Network Qt6::Quick Qt6::Sql PRIVATE PkgConfig::GSTREAMER)
 if(QXZN_HMI_DDS)
     target_include_directories(qxzn_core PUBLIC "${QXZN_HMI_DDS_ABI_INCLUDE_DIR}")
     target_compile_definitions(qxzn_core PUBLIC QXZN_HMI_DDS=1)
@@ -197,6 +201,10 @@ enable_testing()
 qt_add_executable(tst_core tests/tst_core.cpp)
 target_link_libraries(tst_core PRIVATE qxzn_core Qt6::Test)
 add_test(NAME tst_core COMMAND tst_core)
+qt_add_executable(tst_game_launcher_client tests/tst_game_launcher_client.cpp)
+target_link_libraries(tst_game_launcher_client PRIVATE qxzn_core Qt6::Test Qt6::Network)
+add_test(NAME game_launcher_client COMMAND tst_game_launcher_client)
+set_tests_properties(game_launcher_client PROPERTIES TIMEOUT 10)
 qt_add_executable(tst_course_playback tests/tst_course_playback.cpp)
 target_link_libraries(tst_course_playback PRIVATE qxzn_core Qt6::Test)
 add_test(NAME course_playback COMMAND tst_course_playback)

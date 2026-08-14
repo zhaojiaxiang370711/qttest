@@ -54,6 +54,9 @@ The whole shell is laid out at the Godot panel15 design size of 1920×1080 and u
 
 - Top nav: `首页 home` / `课程 learning` / `实战对练 result` / `娱乐模式 entertainment`; hidden: `device` (wifi icon), `combat` (learning card).
 - Sub pages: `fitness` (entertainment card), `ai_coach` / `boxing_knowledge` (learning cards), `course_lesson` (video course player).
+- The `vr_beats_kit` entertainment card calls the local game-process API. The
+  backend stops the Qt course unit before launching Godot and restores Qt when
+  VRBeatsKit exits.
 - Device overlays: volume / display / system / pressure / face / pump_control / punch_control / hit_test / dev_tools / cloud_pairing.
 - `Esc`: close overlay → leave sub page → back to home → quit.
 - Three **pure-video courses** (`special_practice` 专项练习, `stance` 站姿, `right_straight` 右直拳) play end-to-end via GStreamer; the three interactive courses (`focus_mitt` / `bodycombat` / `lesmills_bodycombat`) and embedded games still raise a "互动训练待移植" callout.
@@ -63,7 +66,7 @@ The whole shell is laid out at the Godot panel15 design size of 1920×1080 and u
 - `qml/Main.qml` — background, TopBar at `Rect2(63,45,1794,87)`, page container at `Rect2(48,150,1824,882)`, page `Loader`, `CalloutHost`.
 - QML singletons (module `QxznHmi`): `Theme` (Godot color/font/metric tokens, `px()`=×1.5 and `fontPx()`=×1.56 panel15 scaling), `AppState` (nav/subPage/overlay/callout routing), `ShellData` (all static seed data transcribed from `shell_data.gd` etc.).
 - Components: `HmiCard`/`HmiInset` (neumorph 9-patch + border + highlight), `HmiIcon` (Lucide SVG baked per tone), `HmiButton`, `ClickFlash`, `CalloutHost`, `HmiBarChart`.
-- C++ singletons/backends: `Config`, `SessionModel`, `SegmentInput`, and `DdsBridge`. DDS hits feed the same `SessionModel::onSegment()` path as keyboard input; LED commands are explicit QML calls. Shell page data and the remaining REST/device surfaces are still static seeds.
+- C++ singletons/backends: `Config`, `AiAssistantClient`, `SessionModel`, `SegmentInput`, and `DdsBridge`. DDS hits feed the same `SessionModel::onSegment()` path as keyboard input; LED commands are explicit QML calls. The top-right AI entry opens a pre-training screening chat with quick replies, free text, live completion/summary, safety guidance, and routed recommendations. Local safety rules run first, then the C++ HTTPS client calls the cloud broker at `/api/v1/ai/training-assistant`; failures fall back to the local reply. Set `QXZN_CLOUD_API_BASE` and preferably `QXZN_DEVICE_SYNC_TOKEN_FILE` (a revocable device token, never a model-provider key). The remaining REST/device surfaces are still static seeds.
 - Course video: `CourseCatalog` (six launchers + three video-course records + action markers), `CoursePlaybackController` (QML singleton `CoursePlayer`) driving a dedicated-thread GStreamer worker, and `CourseVideoSurface` (a `QQuickItem` that uploads decoded RGBA frames through a `QSGSimpleTextureNode`).
 
 ## Assets

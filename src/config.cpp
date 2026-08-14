@@ -9,6 +9,7 @@
 // ============================================================
 #include "config.h"
 
+#include <QFile>
 #include <QtGlobal>
 
 namespace {
@@ -36,6 +37,15 @@ int envInt(const char *name, int fallback) {
     return ok ? value : fallback;
 }
 
+QString readSecretFile(const QString &path) {
+    if (path.trimmed().isEmpty())
+        return {};
+    QFile file(path);
+    if (!file.open(QIODevice::ReadOnly | QIODevice::Text))
+        return {};
+    return QString::fromUtf8(file.readAll()).trimmed();
+}
+
 } // namespace
 
 Config::Config(QObject *parent) : QObject(parent) {}
@@ -43,6 +53,8 @@ Config::Config(QObject *parent) : QObject(parent) {}
 void Config::resetDefaults() {
     m_wsUrl = QStringLiteral("ws://localhost:8000/ws");
     m_apiBase = QStringLiteral("http://localhost:8000");
+    m_cloudApiBase = QStringLiteral("https://cloud.qxrobot.com");
+    m_deviceSyncToken.clear();
     m_gameId = QStringLiteral("qxzn_hmi");
     m_difficulty = QStringLiteral("simple");
     m_maxFps = 60;
@@ -67,6 +79,10 @@ void Config::parse(const QStringList &args) {
 
     // 第一步：读环境变量（PD02_DDS_* / QXZN_MEDIA_DIR）作为基础值
     m_mediaRoot = envString("QXZN_MEDIA_DIR", m_mediaRoot);
+    m_cloudApiBase = envString("QXZN_CLOUD_API_BASE", m_cloudApiBase);
+    m_deviceSyncToken = readSecretFile(envString("QXZN_DEVICE_SYNC_TOKEN_FILE", {}));
+    if (m_deviceSyncToken.isEmpty())
+        m_deviceSyncToken = envString("QXZN_DEVICE_SYNC_TOKEN", {});
     m_ddsEnabled = envBool("PD02_DDS_ENABLE", m_ddsEnabled);
     m_ddsCoreLib = envString("PD02_DDS_CORE_LIB", m_ddsCoreLib);
     const int environmentDomainId = envInt("PD02_DDS_DOMAIN_ID", m_ddsDomainId);
@@ -84,6 +100,8 @@ void Config::parse(const QStringList &args) {
         auto next = [&]() -> QString { return (i + 1 < args.size()) ? args.at(++i) : QString(); };
         if (a == QStringLiteral("--ws-url")) m_wsUrl = next();
         else if (a == QStringLiteral("--api-base")) m_apiBase = next();
+        else if (a == QStringLiteral("--cloud-api-base")) m_cloudApiBase = next();
+        else if (a == QStringLiteral("--device-sync-token-file")) m_deviceSyncToken = readSecretFile(next());
         else if (a == QStringLiteral("--game-id")) m_gameId = next();
         else if (a == QStringLiteral("--difficulty")) m_difficulty = next();
         else if (a == QStringLiteral("--max-fps")) m_maxFps = next().toInt();

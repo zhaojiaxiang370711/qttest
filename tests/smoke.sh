@@ -23,6 +23,12 @@ check_run() {
 # Default home shell.
 check_run home "$BIN" -platform offscreen --windowed --no-dds --quit-after-ms 800
 
+# AI assistant deep link: validates the migrated page, free-text composer and
+# local fallback state machine load without requiring the remote AI service.
+check_run ai_assistant \
+    "$BIN" -platform offscreen --windowed --no-dds \
+    --nav ai_coach --quit-after-ms 900
+
 # Course lesson deep link with media deliberately unavailable: the player must
 # load the controlled missing-media error overlay (no crash, no QML error).
 # --media-root overrides the dev auto-root fallback so this path is exercised

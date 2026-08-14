@@ -76,7 +76,7 @@ Qt HMI 与 Godot 实现有意不同：
 - 订阅 `pd02/hit/event` 获取击打事件；
 - 发布 `pd02/led/command` 发送显式 LED 命令；
 - 不通过端口 8000 的 WebSocket 门面处理热路径；
-- REST 保留给后续设备操作、诊断、课程/战力会话和 OTA 等低频接口；
+- REST 用于低频界面接口：顶部右侧 AI 入口提供快捷/自由文本筛查、实时摘要、完成进度、安全提示和训练推荐；它先执行本地安全规则，再由 C++ `AiAssistantClient` 通过 HTTPS 调用云端 `/api/v1/ai/training-assistant`，网络、凭证或服务异常时显示本地回复。Qt 只保存可撤销的设备同步令牌，大模型供应商密钥始终留在云服务器。其余设备操作、诊断、课程/战力会话和 OTA 接口仍待后续接入；
 - 收到 hit **不会自动发送 LED**，避免和实时运行时自身的 hit-led 反馈重复。
 
 当前发现默认值：domain 37、multicast 关闭、initial peer `127.0.0.1`。`ready` 仅表示本地动态库、符号和 DDS context 已就绪，不代表已匹配远端 writer。
@@ -96,7 +96,7 @@ Qt HMI 与 Godot 实现有意不同：
 
 ## CLI 参数
 
-通用参数：`--ws-url`、`--api-base`、`--game-id`、`--difficulty simple|hard`、`--max-fps`、`--windowed`、`--nav`（初始页面，也接受子页面 id，含 `course_lesson`）、`--overlay`、`--course <id>`（视频课 id，经 `CourseCatalog` 校验，默认 `special_practice`）、`--media-root <dir>`（课程媒体根目录，环境变量 `QXZN_MEDIA_DIR`）、`--screenshot`、`--quit-after-ms`。
+通用参数：`--ws-url`、`--api-base`、`--cloud-api-base`、`--device-sync-token-file`、`--game-id`、`--difficulty simple|hard`、`--max-fps`、`--windowed`、`--nav`（初始页面，也接受子页面 id，含 `course_lesson`）、`--overlay`、`--course <id>`（视频课 id，经 `CourseCatalog` 校验，默认 `special_practice`）、`--media-root <dir>`（课程媒体根目录，环境变量 `QXZN_MEDIA_DIR`）、`--screenshot`、`--quit-after-ms`。AI 配置也支持 `QXZN_CLOUD_API_BASE`、`QXZN_DEVICE_SYNC_TOKEN_FILE`；仅调试时可用 `QXZN_DEVICE_SYNC_TOKEN`，生产环境优先权限为 `0600` 的令牌文件。
 
 DDS 参数：`--dds` / `--no-dds`、`--dds-core-lib`、`--dds-domain-id`、`--dds-multicast` / `--no-dds-multicast`、`--dds-initial-peers`、`--dds-participant`、`--dds-hit-event-topic`、`--dds-led-command-topic`。同时支持对应的 `PD02_DDS_*` 环境变量，CLI 优先。
 
@@ -137,8 +137,13 @@ scripts/deploy_1_222.sh --dry-run
 启动器在目标扩展屏检测到并校验 `QXZN HMI` 全屏窗口后，写入
 `$XDG_RUNTIME_DIR/pd02-qxzn-hmi-ready`。VRBeatsKit 的桌面自启动会等待该
 就绪标记，随后由游戏管理后端暂停 Qt 主应用并启动 VR；VR 退出后恢复 Qt。
+娱乐模式中的“VR 节奏拳击”卡片也调用同一个本地游戏管理 API：后端停止
+`pd02-course-runtime.service`、启动 VRBeatsKit，并在游戏退出后恢复 Qt，避免
+主界面和游戏竞争扩展屏及输入设备。
 
 目标机只有系统 Qt 6.4（不满足 6.8 要求），脚本把本机构建产物与 Qt 6.11 运行时（lib/plugins/qml + ldd 依赖闭包）打包到 `/home/x/code/pd02/qxzn-hmi-qt/dist`，经 `run-qxzn-hmi.sh` 包装脚本启动，并在 `~/桌面` 写 `qxzn-hmi.desktop` 快捷方式。不部署 DDS core 库（设备页 DDS 状态显示"离线模式"）与课程媒体。
+
+目标机正式 AI 凭证保存为 `~/.config/qxzn/device-sync-token`（权限 `0600`）。启动包装器存在该文件时自动设置 `QXZN_DEVICE_SYNC_TOKEN_FILE`，并默认连接 `https://cloud.qxrobot.com`；该文件只包含可撤销设备令牌，不能存放大模型供应商 API Key。
 
 ## 许可证
 

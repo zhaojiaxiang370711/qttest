@@ -160,10 +160,46 @@ Rectangle {
         }
     }
 
-    // -- WifiIcon (1466,23,44x44) retains the Godot geometry, now reflecting
-    //    local DDS bridge state. "ready" does not imply a matched remote writer.
+    // Global AI assistant entry. The right-hand status cluster is intentionally
+    // compact so this remains a one-tap action without changing the nav tabs.
     Item {
-        x: 1456
+        id: aiAssistantButton
+        x: 1450
+        y: 13
+        width: 58
+        height: 64
+
+        Rectangle {
+            anchors.fill: parent
+            radius: 24
+            color: AppState.subPage === "ai_coach"
+                   ? Qt.rgba(0, 0.941, 1, 0.20) : Qt.rgba(1, 1, 1, 0.035)
+            border.width: AppState.subPage === "ai_coach" ? 1 : 0
+            border.color: Theme.primary
+        }
+        Text {
+            anchors.centerIn: parent
+            text: "AI"
+            color: AppState.subPage === "ai_coach" ? Theme.primary : Theme.text
+            font.family: Theme.brandFamily
+            font.pixelSize: 23
+        }
+        TapHandler {
+            onTapped: {
+                aiFlash.flash();
+                AppState.openAiAssistant();
+            }
+        }
+        ClickFlash {
+            id: aiFlash
+            radius: 24
+        }
+    }
+
+    // -- WifiIcon reflects local DDS bridge state. "ready" does not imply a
+    //    matched remote writer.
+    Item {
+        x: 1510
         y: 13
         width: 64
         height: 64
@@ -205,7 +241,7 @@ Rectangle {
 
     // -- BatteryIcon (1532,23,44x44) battery-full.svg, muted a=0.96 (no hit area).
     HmiIcon {
-        x: 1532
+        x: 1580
         y: 23
         name: "battery-full"
         tone: "muted"
@@ -216,9 +252,9 @@ Rectangle {
     // -- ClockText (1590,21,99x45) brand font_size 31, centered, 1s refresh.
     Text {
         id: clockText
-        x: 1590
+        x: 1630
         y: 21
-        width: 99
+        width: 78
         height: 45
         color: Theme.text
         font.family: Theme.brandFamily

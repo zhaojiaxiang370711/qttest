@@ -38,6 +38,9 @@ public:
                  "PD02_DDS_LED_COMMAND_TOPIC",
                  "QXZN_MEDIA_DIR",
                  "QXZN_GST_DECODER",
+                 "QXZN_CLOUD_API_BASE",
+                 "QXZN_DEVICE_SYNC_TOKEN",
+                 "QXZN_DEVICE_SYNC_TOKEN_FILE",
              }) {
             const QByteArray key(name);
             m_saved.append({key, qEnvironmentVariableIsSet(name), qgetenv(name)});
@@ -206,6 +209,22 @@ private slots:
         QCOMPARE(c.maxFps(), 30);
         QVERIFY(c.windowed());
         QCOMPARE(c.wsUrl(), QStringLiteral("ws://x/ws"));
+    }
+    void testCloudAiConfigUsesSecretFileAndCliBase() {
+        EnvironmentGuard environment;
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+        const QString tokenPath = directory.filePath(QStringLiteral("device-token"));
+        QFile tokenFile(tokenPath);
+        QVERIFY(tokenFile.open(QIODevice::WriteOnly | QIODevice::Text));
+        QCOMPARE(tokenFile.write("revocable-device-token\n"), qint64(23));
+        tokenFile.close();
+
+        qputenv("QXZN_DEVICE_SYNC_TOKEN_FILE", tokenPath.toUtf8());
+        Config c;
+        c.parse({"--cloud-api-base", "https://cloud.example.test"});
+        QCOMPARE(c.cloudApiBase(), QStringLiteral("https://cloud.example.test"));
+        QCOMPARE(c.deviceSyncToken(), QStringLiteral("revocable-device-token"));
     }
     void testCourseConfigDefaults() {
         EnvironmentGuard environment;
