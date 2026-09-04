@@ -59,6 +59,7 @@ copy assets/sbk.png                                        images/course/sbk.png
 copy assets/lmbjc.png                                      images/course/lmbjc.png
 copy modules/course/assets/launcher_stance_cover.png       images/course/launcher_stance_cover.png
 copy modules/course/assets/launcher_cross_cover.png        images/course/launcher_cross_cover.png
+copy modules/course/assets/launcher_fight_flow_cover.png   images/course/launcher_fight_flow_cover.png
 # Movements view technique thumbnails (referenced by modules/course/course_data.gd MOVE_TEXTURES).
 copy modules/course/assets/move_0.jpg                      images/course/move_0.jpg
 copy modules/course/assets/move_1.jpg                      images/course/move_1.jpg

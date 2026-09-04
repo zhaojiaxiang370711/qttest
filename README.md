@@ -17,12 +17,14 @@ cmake --build build --parallel 6        # PD02 rule: never more than 6 jobs
 ### Automatic height guide service
 
 The device page calls the synchronous ROS2 service
-`/face_height_guide/start`. The UI remains responsive while waiting and shows
+`/face_guided_height/start`. The UI remains responsive while waiting and shows
 the returned `started`, `no person`, or error result. A unique `request_id` is
 generated for every request.
 
-The complete service type is discovered from the live ROS graph. If the
-custom interface package is provided by an overlay, configure it explicitly:
+The complete service type is discovered from the live ROS graph. When the
+interface package is not in the base ROS environment, the helper scans colcon
+workspaces under the user's home for an overlay that provides it; an explicit
+overlay can still be configured:
 
 ```bash
 export QXZN_ROS_OVERLAY_SETUP=/path/to/vision_ws/install/setup.bash

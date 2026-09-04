@@ -99,6 +99,10 @@ CourseCatalog::CourseCatalog(QObject *parent)
                  QStringLiteral("video"), QStringLiteral("stance")),
         launcher(QStringLiteral("right_straight"), QStringLiteral("基础系列：右直拳教学"),
                  crossCover, QStringLiteral("video"), QStringLiteral("right_straight")),
+        // Fight Flow 复刻 lessons_test Web 原型,独立播放器子页(fight_flow)。
+        launcher(QStringLiteral("fight_flow"), QStringLiteral("搏击燃脂·进阶"),
+                 QStringLiteral("qrc:/resources/images/course/launcher_fight_flow_cover.png"),
+                 QStringLiteral("fight_flow"), QStringLiteral("fight_flow")),
     };
 
     m_courses = {
@@ -110,6 +114,15 @@ CourseCatalog::CourseCatalog(QObject *parent)
         videoCourse(QStringLiteral("right_straight"),
                     QStringLiteral("基础系列：右直拳教学"), crossCover,
                     QStringLiteral("course/right_straight_en.mp4"), 25640),
+        // Fight Flow 课程( lessons_test 原型 sisi_bodycombat_01.json ):
+        // markers 为章节边界,章节名/击打目标等由 FightFlowPage 内嵌配置驱动。
+        videoCourse(QStringLiteral("fight_flow"), QStringLiteral("搏击燃脂·进阶"),
+                    QStringLiteral("qrc:/resources/images/course/launcher_fight_flow_cover.png"),
+                    QStringLiteral("course/sisi_bodycombat_01.mp4"), 121154,
+                    {
+                        marker(44000, QStringLiteral("直拳冲刺")),
+                        marker(80000, QStringLiteral("【重击】右勾拳x2 + 左摇闪 + 左摆拳")),
+                    }),
     };
 
     // Boxing technique encyclopedia for the Movements view (course_data.gd::moves()).
@@ -212,6 +225,7 @@ bool CourseCatalog::isMediaKeyAllowed(const QString &mediaKey) {
     return mediaKey == QStringLiteral("course/special_practice.mp4") ||
            mediaKey == QStringLiteral("course/stance_en.mp4") ||
            mediaKey == QStringLiteral("course/right_straight_en.mp4") ||
+           mediaKey == QStringLiteral("course/sisi_bodycombat_01.mp4") ||
            // focus-mitt trainer units (course_data.gd::focus_mitt_units)
            mediaKey == QStringLiteral("sbkcourse/01_12_punch_combo_v2.mp4") ||
            mediaKey == QStringLiteral("sbkcourse/02_left_slip_32_right_roll_23.mp4") ||

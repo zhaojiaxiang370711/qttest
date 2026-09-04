@@ -20,7 +20,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_AUTOMOC ON)
 
 # 声明本项目依赖的 Qt 模块；Quick/Qml 是 QML 应用的核心，Test 供单元测试使用
-find_package(Qt6 6.11 REQUIRED COMPONENTS Core Gui Network Quick QuickControls2 Qml Sql Test)
+find_package(Qt6 6.11 REQUIRED COMPONENTS Core Gui Network Quick QuickControls2 Quick3D Qml Sql Test)
 find_package(PkgConfig REQUIRED)
 pkg_check_modules(GSTREAMER REQUIRED IMPORTED_TARGET
     gstreamer-1.0>=1.20
@@ -109,7 +109,7 @@ qt_add_executable(qxzn_hmi src/main.cpp)
 # 把 project() 声明的版本号传给 C++ 代码，编译成宏 QXZN_HMI_VERSION
 target_compile_definitions(qxzn_hmi PRIVATE QXZN_HMI_VERSION="${PROJECT_VERSION}")
 
-target_link_libraries(qxzn_hmi PRIVATE qxzn_core Qt6::Gui Qt6::Quick Qt6::QuickControls2 Qt6::Qml)
+target_link_libraries(qxzn_hmi PRIVATE qxzn_core Qt6::Gui Qt6::Quick Qt6::QuickControls2 Qt6::Quick3D Qt6::Qml)
 # singleton markers must be set before qt_add_qml_module reads the file list
 # 把这三个 QML 文件标记为单例：必须在 qt_add_qml_module 之前设置，
 # 与 QML 文件里的 "pragma Singleton" 配对
@@ -138,6 +138,9 @@ qt_add_qml_module(qxzn_hmi
         qml/components/ClickFlash.qml
         qml/components/CalloutHost.qml
         qml/components/HmiBarChart.qml
+        qml/components/FightFlowHeatmap.qml
+        qml/components/FightFlowTrendChart.qml
+        qml/components/FightFlowMotionCue.qml
         qml/pages/HomePage.qml
         qml/pages/LearningPage.qml
         qml/pages/ResultPage.qml
@@ -158,6 +161,7 @@ qt_add_qml_module(qxzn_hmi
         qml/subpages/AiCoachPage.qml
         qml/subpages/BoxingKnowledgePage.qml
         qml/subpages/CourseLessonPage.qml
+        qml/subpages/FightFlowPage.qml
         qml/subpages/FocusMittPage.qml
         qml/subpages/SubgamePage.qml
     SOURCES

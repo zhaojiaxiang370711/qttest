@@ -49,7 +49,7 @@ trap stop_server EXIT
 
 ready=0
 for _attempt in {1..50}; do
-    if ros2 service type /face_height_guide/start 2>/dev/null | grep -q '/srv/FaceHeightGuideStart'; then
+    if ros2 service type /face_guided_height/start 2>/dev/null | grep -q '/srv/FaceHeightGuideStart'; then
         ready=1
         break
     fi

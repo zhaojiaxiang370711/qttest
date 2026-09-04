@@ -17,11 +17,12 @@ cmake --build build --parallel 6        # PD02 规则：并发不得超过 6
 ### 自动高度引导服务
 
 设备页“自动高度调整”通过 ROS2 同步服务
-`/face_height_guide/start` 发起请求。Qt 界面不会阻塞；服务返回后会展示
+`/face_guided_height/start` 发起请求。Qt 界面不会阻塞；服务返回后会展示
 `started`、`no person` 或具体错误。每次请求自动生成唯一 `request_id`。
 
-运行时会从 ROS graph 发现完整服务类型。如果接口包尚未进入当前 ROS
-环境，可显式配置：
+运行时会从 ROS graph 发现完整服务类型。接口包不在 ROS 基础环境中时，
+helper 会自动扫描用户主目录下的 colcon 工作区并加载提供该包的 overlay；
+也可显式配置：
 
 ```bash
 export QXZN_ROS_OVERLAY_SETUP=/path/to/vision_ws/install/setup.bash

@@ -212,6 +212,7 @@ set(QXZN_ASSET_FILES
     resources/images/callouts/callout_success.png
     resources/images/callouts/callout_warning.png
     resources/images/course/launcher_cross_cover.png
+    resources/images/course/launcher_fight_flow_cover.png
     resources/images/course/launcher_stance_cover.png
     resources/images/course/lmbjc.png
     resources/images/course/move_0.jpg

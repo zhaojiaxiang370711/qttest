@@ -258,13 +258,14 @@ private slots:
     }
     void testCourseCatalog() {
         CourseCatalog catalog;
-        QCOMPARE(catalog.launchers().size(), 6);
-        QCOMPARE(catalog.courses().size(), 3);
+        QCOMPARE(catalog.launchers().size(), 7);
+        QCOMPARE(catalog.courses().size(), 4);
         QCOMPARE(catalog.defaultCourseId(), QStringLiteral("special_practice"));
         QCOMPARE(catalog.defaultLauncherIndex(), 3);
         QVERIFY(catalog.contains(QStringLiteral("special_practice")));
         QVERIFY(catalog.contains(QStringLiteral("stance")));
         QVERIFY(catalog.contains(QStringLiteral("right_straight")));
+        QVERIFY(catalog.contains(QStringLiteral("fight_flow")));
         QVERIFY(!catalog.contains(QStringLiteral("bodycombat")));
 
         int playableLaunchers = 0;
@@ -273,7 +274,7 @@ private slots:
             if (!launcher.value(QStringLiteral("videoCourseId")).toString().isEmpty())
                 ++playableLaunchers;
         }
-        QCOMPARE(playableLaunchers, 3);
+        QCOMPARE(playableLaunchers, 4);
 
         const QVariantMap special = catalog.course(QStringLiteral("special_practice"));
         QCOMPARE(special.value(QStringLiteral("mediaKey")).toString(),

@@ -48,6 +48,7 @@ ApplicationWindow {
         }
 
         TopBar {
+            visible: AppState.subPage !== "fight_flow"
             x: Theme.topBarRect.x
             y: Theme.topBarRect.y
             width: Theme.topBarRect.width
@@ -57,6 +58,7 @@ ApplicationWindow {
         // page container: runtime_layout.gd panel15 shell.main Rect2(48,150,1824,882)
         Rectangle {
             id: pageContainer
+            visible: AppState.subPage !== "fight_flow"
             x: Theme.pageRect.x
             y: Theme.pageRect.y
             width: Theme.pageRect.width
@@ -113,8 +115,31 @@ ApplicationWindow {
             }
         }
 
+        // Immersive course players bypass the shell card and navigation bar.
+        // Loading them only here also prevents two FightFlowPage instances from
+        // opening the same CoursePlayer at the same time.
+        Loader {
+            id: immersivePageLoader
+            anchors.fill: parent
+            active: AppState.subPage === "fight_flow"
+            source: active ? "subpages/FightFlowPage.qml" : ""
+            z: 10
+            opacity: 0
+            onLoaded: immersiveFade.restart()
+
+            NumberAnimation {
+                id: immersiveFade
+                target: immersivePageLoader
+                property: "opacity"
+                from: 0
+                to: 1
+                duration: 160
+            }
+        }
+
         CalloutHost {
             anchors.fill: parent
+            z: 20
         }
     }
 

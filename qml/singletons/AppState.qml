@@ -43,7 +43,7 @@ QtObject {
     property string calloutMessage: ""
 
     readonly property var navIds: ["home", "learning", "result", "entertainment", "device", "combat"]
-    readonly property var subPageIds: ["fitness", "ai_coach", "boxing_knowledge", "course_lesson", "focus_mitt", "subgame"]
+    readonly property var subPageIds: ["fitness", "ai_coach", "boxing_knowledge", "course_lesson", "focus_mitt", "subgame", "fight_flow"]
 
     // 通过函数集中修改状态并做合法性校验，而不是让页面随便直接改——
     // 这是值得初学者学习的封装习惯
@@ -87,6 +87,17 @@ QtObject {
         courseId = id;
         selectedNav = "learning";
         subPage = "course_lesson";
+        return true;
+    }
+
+    // Open the Fight Flow course: same validation as openCourse, but routed to
+    // the dedicated fight_flow player sub page (lessons_test Web 原型复刻).
+    function openFightFlow(id) {
+        if (!CourseCatalog.contains(id))
+            return false;
+        courseId = id;
+        selectedNav = "learning";
+        subPage = "fight_flow";
         return true;
     }
 

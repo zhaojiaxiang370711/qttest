@@ -12,10 +12,10 @@ class FaceHeightGuideMock(Node):
         super().__init__("face_height_guide_mock")
         self.create_service(
             FaceHeightGuideStart,
-            "/face_height_guide/start",
+            "/face_guided_height/start",
             self.handle_start,
         )
-        self.get_logger().info("mock service ready: /face_height_guide/start")
+        self.get_logger().info("mock service ready: /face_guided_height/start")
 
     def handle_start(self, request, response):
         request_id = request.request_id.strip()

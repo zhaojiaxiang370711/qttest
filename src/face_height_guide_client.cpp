@@ -22,7 +22,10 @@ FaceHeightGuideClient::FaceHeightGuideClient(QObject *parent)
     : QObject(parent) {
     m_process.setProcessChannelMode(QProcess::MergedChannels);
     m_timeout.setSingleShot(true);
-    m_timeout.setInterval(15000);
+    // The vision service may hold a start request while waiting for a person
+    // to be detected; the helper's own call timeout is 20 s, so allow
+    // comfortable headroom over helper startup plus that wait.
+    m_timeout.setInterval(30000);
 
     connect(&m_timeout, &QTimer::timeout, this, [this]() {
         if (!m_busy)

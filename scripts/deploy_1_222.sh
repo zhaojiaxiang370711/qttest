@@ -108,6 +108,10 @@ cat > "${STAGE_DIR}/run-qxzn-hmi.sh" <<'WRAPPER'
 # 随包 lib/ 里有引用 GLIBC_2.43 的库，高于目标机系统的 2.39，
 # 所以必须显式用随包 ld-linux 启动，并只用随包库解析依赖。
 DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+# 经随包 ld-linux 启动时 /proc/self/exe 指向加载器，Qt 的
+# applicationDirPath() 会解析到 lib/ 而找不到随包根目录下的高度引导
+# helper，因此这里显式导出其路径（FaceHeightGuideClient 优先读该变量）。
+export QXZN_FACE_HEIGHT_GUIDE_HELPER="${DIR}/call_face_height_guide.sh"
 export QT_PLUGIN_PATH="${DIR}/plugins"
 export QML2_IMPORT_PATH="${DIR}/qml"
 # The model-provider key never reaches the device. Qt reads only this

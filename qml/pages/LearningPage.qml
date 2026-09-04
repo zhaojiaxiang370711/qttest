@@ -67,6 +67,8 @@ Item {
         const entry = root.courses[root.courseIndex];
         if (entry.kind === "focus_mitt")
             AppState.openSubPage("focus_mitt");
+        else if (entry.kind === "fight_flow")
+            AppState.openFightFlow(entry.videoCourseId);
         else if (entry.kind === "video" && entry.videoCourseId !== undefined && entry.videoCourseId !== "")
             AppState.openCourse(entry.videoCourseId);
         else
